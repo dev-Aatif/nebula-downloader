@@ -105,16 +105,22 @@ export default function Downloads({
       )
     })
     .sort((a, b) => {
-      let valA: any = a[sortField as keyof Download] ?? ''
-      let valB: any = b[sortField as keyof Download] ?? ''
+      let valA, valB
 
       if (sortField === 'added') {
         valA = a.createdAt
         valB = b.createdAt
+      } else {
+        valA = a[sortField as keyof Download]
+        valB = b[sortField as keyof Download]
       }
 
-      if (valA < valB) return sortOrder === 'asc' ? -1 : 1
-      if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+      // Handle cases where the value might be null or undefined
+      const comparableA = valA ?? ''
+      const comparableB = valB ?? ''
+
+      if (comparableA < comparableB) return sortOrder === 'asc' ? -1 : 1
+      if (comparableA > comparableB) return sortOrder === 'asc' ? 1 : -1
       return 0
     })
 
@@ -134,8 +140,12 @@ export default function Downloads({
         <div className="header-clickable justify-center" onClick={() => handleSort('speedValue')}>
           Speed <SortIndicator field="speedValue" sortField={sortField} sortOrder={sortOrder} />
         </div>
-        <div className="header-clickable justify-center" onClick={() => handleSort('totalSizeInBytes')}>
-          Size <SortIndicator field="totalSizeInBytes" sortField={sortField} sortOrder={sortOrder} />
+        <div
+          className="header-clickable justify-center"
+          onClick={() => handleSort('totalSizeInBytes')}
+        >
+          Size{' '}
+          <SortIndicator field="totalSizeInBytes" sortField={sortField} sortOrder={sortOrder} />
         </div>
         <div className="header-clickable justify-center" onClick={() => handleSort('createdAt')}>
           Added <SortIndicator field="createdAt" sortField={sortField} sortOrder={sortOrder} />

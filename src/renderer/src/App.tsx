@@ -202,14 +202,14 @@ function App(): React.ReactElement {
 
   const activeDownloads = downloads.filter((d) => d.status === 'downloading')
   const totalSpeed = activeDownloads.reduce((acc, d) => acc + (d.speedValue || 0), 0)
-  const totalSize = downloads.reduce((acc, d) => acc + (d.totalSizeInBytes || 0), 0)
-  const totalDownloaded = downloads.reduce(
-    (acc, d) => acc + ((d.totalSizeInBytes || 0) * d.progress) / 100,
-    0
-  )
-  const overallProgress = totalSize > 0 ? (totalDownloaded / totalSize) * 100 : 0
-  const remainingBytes = totalSize - totalDownloaded
-  const etaSeconds = totalSpeed > 0 ? remainingBytes / totalSpeed : 0
+
+  // Calculations for active downloads (for ETA and live progress)
+  const activeTotalSize = activeDownloads.reduce((acc, d) => acc + (d.totalSizeInBytes || 0), 0)
+  const activeTotalDownloaded = activeDownloads.reduce((acc, d) => acc + d.downloadedSizeInBytes, 0)
+  const activeOverallProgress =
+    activeTotalSize > 0 ? (activeTotalDownloaded / activeTotalSize) * 100 : 0
+  const activeRemainingBytes = activeTotalSize - activeTotalDownloaded
+  const activeEtaSeconds = totalSpeed > 0 ? activeRemainingBytes / totalSpeed : 0
 
   const formatEta = (seconds: number): string => {
     if (seconds <= 0 || !isFinite(seconds)) return '—'
@@ -357,15 +357,15 @@ function App(): React.ReactElement {
         {activeDownloads.length > 0 && (
           <>
             <div className="footer-stat">
-              <span>{overallProgress.toFixed(1)}%</span>
+              <span>{activeOverallProgress.toFixed(1)}%</span>
             </div>
             <div className="footer-stat">
               <span>
-                {formatBytes(totalDownloaded)} / {formatBytes(totalSize)}
+                {formatBytes(activeTotalDownloaded)} / {formatBytes(activeTotalSize)}
               </span>
             </div>
             <div className="footer-stat">
-              <span>ETA: {formatEta(etaSeconds)}</span>
+              <span>ETA: {formatEta(activeEtaSeconds)}</span>
             </div>
           </>
         )}
