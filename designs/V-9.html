@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nebula Manager UI</title>
+    <style>
+        :root {
+            /* Palette derived from V-8.html */
+            --bg-deep: #0b0c15;
+            --bg-panel: rgba(22, 27, 45, 0.7);
+            --bg-card: rgba(30, 35, 55, 0.5);
+            --border-glass: 1px solid rgba(255, 255, 255, 0.08);
+            --primary: #00f3ff;
+            --secondary: #bd00ff;
+            --success: #0aff60;
+            --text-main: #e0e6ed;
+            --text-muted: #8b9bb4;
+            
+            --font-stack: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-stack); }
+
+        body {
+            background-color: var(--bg-deep);
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(0, 243, 255, 0.03), transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(189, 0, 255, 0.03), transparent 40%);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* --- 1. TOOLBAR (Top) --- */
+        .toolbar {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            background: var(--bg-panel);
+            backdrop-filter: blur(10px);
+            border-bottom: var(--border-glass);
+            gap: 16px;
+        }
+
+        .brand {
+            font-weight: 700;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-right: 20px;
+            letter-spacing: -0.5px;
+        }
+        .brand span { color: var(--primary); text-shadow: 0 0 15px rgba(0, 243, 255, 0.4); }
+
+        .control-group {
+            display: flex;
+            gap: 4px;
+            background: rgba(255,255,255,0.03);
+            padding: 4px;
+            border-radius: 8px;
+            border: var(--border-glass);
+        }
+
+        .btn-icon {
+            width: 32px; height: 32px;
+            border: none; background: transparent;
+            color: var(--text-muted);
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: 0.2s;
+        }
+        .btn-icon:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .btn-icon.active { color: var(--success); background: rgba(10, 255, 96, 0.1); }
+        .btn-icon.add { color: var(--bg-deep); background: var(--primary); font-weight: bold;}
+        .btn-icon.add:hover { box-shadow: 0 0 15px var(--primary); }
+
+        .search-bar {
+            margin-left: auto;
+            background: rgba(0,0,0,0.2);
+            border: var(--border-glass);
+            border-radius: 6px;
+            padding: 6px 12px;
+            display: flex; align-items: center; gap: 8px;
+            width: 250px;
+        }
+        .search-bar input {
+            background: none; border: none; outline: none; color: white; font-size: 13px; width: 100%;
+        }
+
+        /* --- 2. MAIN GRID (Replicating FDM Structure) --- */
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 24px;
+            padding: 0 24px;
+            border-bottom: var(--border-glass);
+            font-size: 13px;
+            height: 40px;
+            align-items: center;
+        }
+        .tab { 
+            color: var(--text-muted); cursor: pointer; position: relative; height: 100%; 
+            display: flex; align-items: center; 
+        }
+        .tab.active { color: white; font-weight: 500; }
+        .tab.active::after {
+            content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 2px;
+            background: var(--primary); box-shadow: 0 0 10px var(--primary);
+        }
+
+        .grid-header {
+            display: grid;
+            grid-template-columns: 40px 3fr 1fr 2fr 1fr;
+            padding: 10px 24px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+            background: rgba(0,0,0,0.1);
+        }
+
+        .grid-row {
+            display: grid;
+            grid-template-columns: 40px 3fr 1fr 2fr 1fr;
+            padding: 14px 24px;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            font-size: 13px;
+            transition: 0.2s;
+            cursor: default;
+        }
+        .grid-row:hover { background: rgba(255,255,255,0.03); }
+        .grid-row.selected { background: rgba(0, 243, 255, 0.05); border-left: 2px solid var(--primary); }
+
+        .file-icon { width: 20px; opacity: 0.7; }
+        .progress-bar-sm {
+            height: 4px; width: 100%; background: rgba(255,255,255,0.1);
+            border-radius: 2px; margin-top: 6px; overflow: hidden;
+        }
+        .progress-fill-sm { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s; }
+        .meta-text { font-size: 11px; color: var(--text-muted); margin-top: 4px; display: flex; justify-content: space-between;}
+
+        /* --- 3. FLOATING WIDGET (Based on Design.jpg) --- */
+        /* This strictly follows the flexbox diagram provided */
+        .floating-widget {
+            position: fixed;
+            bottom: 50px; right: 30px;
+            width: 440px; height: 100px;
+            background: rgba(18, 22, 35, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            display: flex; /* Flexbox Layout */
+            padding: 12px;
+            gap: 16px;
+            z-index: 100;
+            animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Left: Thumbnail */
+        .fw-left {
+            width: 76px; height: 100%;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .fw-left svg { width: 32px; height: 32px; stroke: var(--primary); stroke-width: 1.5; fill: none;}
+
+        /* Center: Info & Progress */
+        .fw-center {
+            flex: 1; /* Takes remaining space */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 6px;
+            overflow: hidden;
+        }
+        .fw-filename { font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+        
+        /* The main progress bar styles */
+        .fw-progress-track {
+            height: 8px; width: 100%; background: rgba(0,0,0,0.3);
+            border-radius: 4px; overflow: hidden; position: relative;
+        }
+        .fw-progress-fill {
+            height: 100%; width: 45%; 
+            background: linear-gradient(90deg, var(--secondary), var(--primary));
+            box-shadow: 0 0 15px var(--primary);
+        }
+        .fw-meta { font-size: 11px; color: var(--text-muted); display: flex; gap: 8px; }
+
+        /* Right: Actions */
+        .fw-right {
+            display: flex;
+            flex-direction: column; /* Vertical stack as per diagram */
+            justify-content: space-between;
+            width: 32px;
+            flex-shrink: 0;
+        }
+        .fw-btn {
+            width: 32px; height: 22px;
+            border-radius: 4px; border: none;
+            background: rgba(255,255,255,0.05); color: var(--text-main);
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-size: 12px; transition: 0.2s;
+        }
+        .fw-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+        .fw-btn.close:hover { background: #ff4757; }
+
+        /* --- 4. FOOTER (Status) --- */
+        .footer {
+            height: 32px;
+            background: #08090f;
+            border-top: var(--border-glass);
+            display: flex; align-items: center;
+            padding: 0 20px;
+            font-size: 11px;
+            color: var(--text-muted);
+            justify-content: space-between;
+        }
+        .speed-indicator { display: flex; align-items: center; gap: 15px; }
+        .speed-indicator span { color: var(--text-main); }
+
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="toolbar">
+        <div class="brand">
+            <span>●</span> Nebula
+        </div>
+        
+        <div class="control-group">
+            <button class="btn-icon add" title="Add URL">＋</button>
+        </div>
+
+        <div class="control-group">
+            <button class="btn-icon active" title="Start">▶</button>
+            <button class="btn-icon" title="Pause">⏸</button>
+            <button class="btn-icon" title="Stop">⏹</button>
+        </div>
+        
+        <div class="control-group">
+            <button class="btn-icon" title="Delete">🗑</button>
+            <button class="btn-icon" title="Folder">📁</button>
+        </div>
+
+        <div class="search-bar">
+            <span>🔍</span>
+            <input type="text" placeholder="Filter downloads...">
+        </div>
+        
+        <button class="btn-icon" title="Settings">⚙</button>
+    </div>
+
+    <div class="main-area">
+        <div class="tabs">
+            <div class="tab active">All (2)</div>
+            <div class="tab">Active (1)</div>
+            <div class="tab">Completed</div>
+        </div>
+
+        <div class="grid-header">
+            <div>Type</div>
+            <div>Name</div>
+            <div>Size</div>
+            <div>Progress</div>
+            <div>Speed</div>
+        </div>
+
+        <div class="grid-row selected">
+            <div class="file-icon">📦</div>
+            <div style="font-weight: 500;">UI_Design_Resources_Pack.zip</div>
+            <div style="color: var(--text-muted);">1.2 GB</div>
+            <div>
+                <div class="progress-bar-sm"><div class="progress-fill-sm" style="width: 45%"></div></div>
+                <div class="meta-text"><span>45%</span> <span>30s left</span></div>
+            </div>
+            <div style="color: var(--primary);">2.5 MB/s</div>
+        </div>
+
+        <div class="grid-row" style="opacity: 0.7;">
+            <div class="file-icon">📄</div>
+            <div>Project_Specifications_v2.pdf</div>
+            <div style="color: var(--text-muted);">4.5 MB</div>
+            <div>
+                <div class="progress-bar-sm"><div class="progress-fill-sm" style="width: 100%; background: var(--success);"></div></div>
+                <div class="meta-text"><span>Completed</span> <span>Yesterday</span></div>
+            </div>
+            <div>--</div>
+        </div>
+    </div>
+
+    <div class="floating-widget">
+        <div class="fw-left">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+        </div>
+
+        <div class="fw-center">
+            <div class="fw-filename">UI_Design_Resources_Pack.zip</div>
+            <div class="fw-progress-track">
+                <div class="fw-progress-fill"></div>
+            </div>
+            <div class="fw-meta">
+                <span style="color: var(--primary)">2.5 MB/s</span> • 1.2 GB • 30s remaining
+            </div>
+        </div>
+
+        <div class="fw-right">
+            <button class="fw-btn" title="Pause">⏸</button>
+            <button class="fw-btn close" title="Cancel">✕</button>
+            <button class="fw-btn" title="Open">📁</button>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="speed-indicator">
+            <span>⬇ 2.5 MB/s</span>
+            <span>⬆ 0 KB/s</span>
+        </div>
+        <div>Free Space: 104 GB</div>
+    </div>
+
+</body>
+</html>

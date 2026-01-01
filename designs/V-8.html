@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nebula Downloader</title>
+
+    <style>
+      :root {
+        --bg-deep: #050508;
+        --bg-panel: rgba(20, 25, 40, 0.6);
+        --border-glass: 1px solid rgba(255, 255, 255, 0.08);
+
+        --neon-blue: #00f3ff;
+        --neon-green: #0aff60;
+        --neon-purple: #bd00ff;
+
+        --text-main: #e0e6ed;
+        --text-dim: #6b7280;
+
+        --header-height: 56px;
+        --tab-height: 40px;
+        --footer-height: 34px;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+      }
+
+      body {
+        height: 100vh;
+        background:
+          radial-gradient(circle at 15% 50%, rgba(0, 243, 255, 0.05), transparent 30%),
+          radial-gradient(circle at 85% 30%, rgba(189, 0, 255, 0.05), transparent 30%),
+          var(--bg-deep);
+        color: var(--text-main);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      /* ───────── TOP NAVBAR ───────── */
+
+      .toolbar {
+        height: var(--header-height);
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 14px;
+        background: var(--bg-panel);
+        backdrop-filter: blur(12px);
+        border-bottom: var(--border-glass);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      }
+
+      .app-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-right: 8px;
+      }
+
+      .logo-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--neon-purple);
+        box-shadow: 0 0 8px var(--neon-purple);
+      }
+
+      .app-name {
+        font-weight: 600;
+        letter-spacing: 0.4px;
+      }
+
+      .tool-group {
+        display: flex;
+        gap: 6px;
+        padding: 4px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 8px;
+      }
+
+      .tool-btn {
+        height: 32px;
+        width: 32px;
+        border: none;
+        background: transparent;
+        color: var(--text-dim);
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: 0.2s;
+      }
+
+      .tool-btn svg {
+        width: 20px;
+        height: 20px;
+        fill: currentColor;
+      }
+
+      .tool-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--text-main);
+      }
+
+      .tool-btn.primary {
+        color: var(--neon-blue);
+      }
+
+      /* ───────── FLOATING DOWNLOAD CARD ───────── */
+
+      .download-float {
+        position: fixed;
+        right: 20px;
+        bottom: 64px; /* sits above footer */
+        width: 420px;
+        height: 96px;
+
+        display: flex;
+        gap: 14px;
+        padding: 14px;
+
+        background: linear-gradient(180deg, rgba(30, 40, 60, 0.9), rgba(15, 20, 35, 0.9));
+
+        border-radius: 14px;
+        border: 1px solid rgba(0, 243, 255, 0.25);
+        backdrop-filter: blur(12px);
+
+        box-shadow:
+          0 10px 40px rgba(0, 0, 0, 0.6),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+      }
+
+      /* LEFT (Thumbnail) */
+
+      .dl-thumb {
+        width: 64px;
+        height: 64px;
+        border-radius: 12px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        background: rgba(0, 243, 255, 0.08);
+        border: 1px solid rgba(0, 243, 255, 0.25);
+      }
+
+      .dl-thumb svg {
+        width: 34px;
+        height: 34px;
+        fill: var(--neon-blue);
+        opacity: 0.9;
+      }
+
+      /* CENTER (Info & Progress) */
+
+      .dl-center {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 6px;
+      }
+
+      .dl-filename {
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .dl-progress-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .dl-progress-track {
+        flex: 1;
+        height: 6px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+        overflow: hidden;
+      }
+
+      .dl-progress-fill {
+        width: 45%;
+        height: 100%;
+        background: linear-gradient(90deg, #7dd3ff, var(--neon-blue));
+        box-shadow: 0 0 10px var(--neon-blue);
+      }
+
+      .dl-percent {
+        font-size: 12px;
+        color: var(--text-dim);
+        width: 32px;
+        text-align: right;
+      }
+
+      .dl-meta {
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+
+      /* RIGHT (Actions) */
+
+      .dl-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .dl-actions button {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: none;
+        cursor: pointer;
+
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text-main);
+        font-size: 14px;
+
+        transition: 0.2s;
+      }
+
+      .dl-actions button:hover {
+        background: rgba(0, 243, 255, 0.2);
+        color: var(--neon-blue);
+      }
+
+      .tool-btn.active {
+        color: var(--neon-green);
+        background: rgba(10, 255, 96, 0.15);
+        box-shadow: 0 0 8px rgba(10, 255, 96, 0.4);
+      }
+
+      .spacer {
+        flex: 1;
+      }
+
+      .search-box {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 8px;
+        padding: 6px 10px;
+        width: 190px;
+      }
+
+      .search-box input {
+        width: 100%;
+        background: none;
+        border: none;
+        outline: none;
+        color: var(--text-main);
+        font-size: 13px;
+      }
+
+      /* ───────── TABS ───────── */
+
+      .tabs-bar {
+        height: var(--tab-height);
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 0 16px;
+        font-size: 13px;
+        border-bottom: var(--border-glass);
+      }
+
+      .tab {
+        color: var(--text-dim);
+        cursor: pointer;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        position: relative;
+      }
+
+      .tab.active {
+        color: var(--neon-blue);
+        font-weight: 500;
+      }
+
+      .tab.active::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--neon-blue);
+        box-shadow: 0 0 8px var(--neon-blue);
+      }
+
+      /* ───────── GRID ───────── */
+
+      .grid-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: rgba(0, 0, 0, 0.2);
+      }
+
+      .grid-header,
+      .grid-row {
+        display: grid;
+        grid-template-columns: 40px 3fr 1fr 2fr 1fr 1fr;
+        padding: 12px 16px;
+        align-items: center;
+      }
+
+      .grid-header {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--text-dim);
+        border-bottom: var(--border-glass);
+      }
+
+      .grid-row {
+        font-size: 13px;
+        border-bottom: var(--border-glass);
+        background: rgba(255, 255, 255, 0.02);
+        transition: 0.2s;
+      }
+
+      .grid-row:hover {
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .name-col {
+        font-weight: 500;
+        color: #fff;
+      }
+
+      .progress-wrapper {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .progress-track {
+        height: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: 6px;
+      }
+
+      .progress-fill {
+        height: 100%;
+        width: 62%;
+        background: var(--neon-blue);
+        box-shadow: 0 0 10px var(--neon-blue);
+      }
+
+      .status-pill {
+        font-size: 11px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: rgba(10, 255, 96, 0.15);
+        color: var(--neon-green);
+        width: fit-content;
+      }
+
+      /* ───────── FOOTER ───────── */
+
+      .footer {
+        height: var(--footer-height);
+        display: flex;
+        align-items: center;
+        background: #08090f;
+        border-top: var(--border-glass);
+        font-size: 12px;
+      }
+
+      .speed-box {
+        padding: 0 16px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        border-right: var(--border-glass);
+      }
+
+      .footer-spacer {
+        flex: 1;
+      }
+
+      .connection-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--neon-green);
+        box-shadow: 0 0 5px var(--neon-green);
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- TOP BAR -->
+    <div class="toolbar">
+      <div class="app-brand">
+        <div class="logo-dot"></div>
+        <div class="app-name">Nebula</div>
+      </div>
+
+      <div class="tool-group">
+        <button class="tool-btn primary" title="Add Download">＋</button>
+      </div>
+
+      <div class="tool-group">
+        <button class="tool-btn active" title="Start">▶</button>
+        <button class="tool-btn" title="Pause">⏸</button>
+      </div>
+
+      <div class="tool-group">
+        <button class="tool-btn" title="Delete">🗑</button>
+        <button class="tool-btn" title="Open Folder">📁</button>
+      </div>
+
+      <div class="spacer"></div>
+
+      <div class="search-box">🔍 <input type="text" placeholder="Search downloads..." /></div>
+
+      <button class="tool-btn" title="Settings">☰</button>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs-bar">
+      <div class="tab active">All</div>
+      <div class="tab">Downloading</div>
+      <div class="tab">Paused</div>
+      <div class="tab">Completed</div>
+    </div>
+
+    <!-- GRID -->
+    <div class="grid-container">
+      <div class="grid-header">
+        <div>#</div>
+        <div>Name</div>
+        <div>Size</div>
+        <div>Progress</div>
+        <div>Status</div>
+        <div>Speed</div>
+      </div>
+
+      <div class="grid-row">
+        <div>⬇</div>
+        <div class="name-col">UI_Design_Resources_Pack.zip</div>
+        <div>8.4 GB</div>
+
+        <div class="progress-wrapper">
+          <div style="display: flex; justify-content: space-between; font-size: 11px">
+            <span>62%</span>
+            <span style="color: var(--text-dim)">ETA 7m</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill"></div>
+          </div>
+        </div>
+
+        <div class="status-pill">Downloading</div>
+        <div style="color: var(--neon-blue)">↓ 9.8 MB/s</div>
+      </div>
+
+      <div style="flex: 1"></div>
+    </div>
+
+    <div class="download-float">
+      <div class="dl-thumb">
+        <svg viewBox="0 0 24 24">
+          <path d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm8 1.5V8h4.5" />
+        </svg>
+      </div>
+
+      <div class="dl-center">
+        <div class="dl-filename">Filename.ext</div>
+
+        <div class="dl-progress-row">
+          <div class="dl-progress-track">
+            <div class="dl-progress-fill"></div>
+          </div>
+          <div class="dl-percent">45%</div>
+        </div>
+
+        <div class="dl-meta">2.5 MB/s • 1.2 GB • 30s remaining</div>
+      </div>
+
+      <div class="dl-actions">
+        <button title="Pause">⏸</button>
+        <button title="Cancel">✕</button>
+        <button title="Open Folder">📁</button>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer">
+      <div class="speed-box">↓ 9.8 MB/s</div>
+      <div class="speed-box">↑ 320 KB/s</div>
+
+      <div class="footer-spacer"></div>
+
+      <div class="speed-box">
+        <div class="connection-dot"></div>
+        Connected
+      </div>
+    </div>
+  </body>
+</html>
