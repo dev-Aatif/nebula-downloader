@@ -1,4 +1,10 @@
 import React, { useState, useEffect } from 'react'
+import {
+  getVideoCodecLabel,
+  getAudioCodecLabel,
+  formatFileSize,
+  formatResolution
+} from '../utils/formatLabels'
 
 // Define the FormatInfo type as it's used in the renderer
 interface FormatInfo {
@@ -118,8 +124,9 @@ const AdvancedDownloadOptionsModal: React.FC<AdvancedDownloadOptionsModalProps> 
                 <option value="">Select Video Format (Optional)</option>
                 {videoFormats.map((f) => (
                   <option key={f.format_id} value={f.format_id}>
-                    {f.resolution} ({f.ext}, {f.vcodec}) {f.fps ? `@${f.fps}fps` : ''}{' '}
-                    {f.filesize ? `(${Math.round(f.filesize / (1024 * 1024))}MB)` : ''}
+                    {formatResolution(f.resolution)} • {getVideoCodecLabel(f.vcodec)} • {f.ext.toUpperCase()}
+                    {f.fps ? ` @${f.fps}fps` : ''}
+                    {f.filesize ? ` (${formatFileSize(f.filesize)})` : ''}
                   </option>
                 ))}
               </select>
@@ -139,8 +146,9 @@ const AdvancedDownloadOptionsModal: React.FC<AdvancedDownloadOptionsModalProps> 
                 <option value="">Select Audio Format (Optional)</option>
                 {audioFormats.map((f) => (
                   <option key={f.format_id} value={f.format_id}>
-                    {f.ext}, {f.acodec} {f.tbr ? `(${f.tbr}kbps)` : ''}{' '}
-                    {f.filesize ? `(${Math.round(f.filesize / (1024 * 1024))}MB)` : ''}
+                    {getAudioCodecLabel(f.acodec)} • {f.ext.toUpperCase()}
+                    {f.tbr ? ` (${f.tbr}kbps)` : ''}
+                    {f.filesize ? ` (${formatFileSize(f.filesize)})` : ''}
                   </option>
                 ))}
               </select>

@@ -1,29 +1,33 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Downloads from './pages/downloads'
 import Settings from './pages/settings'
 import History from './pages/History'
 import Help from './pages/Help'
 import AddDownloadModal from './components/AddDownloadModal'
 import DownloadDetails from './components/DownloadDetails'
+import ClipboardToast from './components/ClipboardToast'
 import type { Download } from '../../main/types'
+import { isValidVideoUrl } from './utils/urlValidator'
 import {
   PlusIcon,
   PlayIcon,
   PauseIcon,
   TrashIcon,
-  FolderIcon,
   SearchIcon,
   SettingsIcon,
   ClockIcon,
   HelpIcon,
   DownloadIcon,
   CheckCircleIcon,
-  ClockIcon as ActiveIcon
+  ChevronUpIcon,
+  AlertCircleIcon,
+  ListIcon,
+  BanIcon
 } from './components/icons'
 import { formatBytes } from './utils'
 
 type Page = 'Downloads' | 'History' | 'Settings' | 'Help'
-type DownloadFilter = 'All' | 'Downloading' | 'Paused' | 'Completed'
+type DownloadFilter = 'All' | 'Downloading' | 'Paused' | 'Completed' | 'Queued' | 'Error' | 'Cancelled'
 
 const pages: Record<
   Page,
@@ -83,6 +87,11 @@ function App(): React.ReactElement {
   const [isAddDownloadModalOpen, setAddDownloadModalOpen] = useState(false)
   const [downloads, setDownloads] = useState<Download[]>([])
   const [activeDownloadId, setActiveDownloadId] = useState<string | null>(null)
+  const [isFooterExpanded, setFooterExpanded] = useState(false)
+
+  // Clipboard detection state
+  const [clipboardUrl, setClipboardUrl] = useState<string | null>(null)
+  const lastCheckedClipboardRef = useRef<string>('')
 
   useEffect(() => {
     const unlistenLoaded = window.api.onDownloadsLoaded((loadedDownloads) => {
@@ -155,6 +164,68 @@ function App(): React.ReactElement {
     }
   }, [activeDownloadId, selectedDownloadId])
 
+  // Clipboard detection on focus
+  const checkClipboard = useCallback(async () => {
+    try {
+      const text = await window.api.readClipboard()
+      const trimmedText = text?.trim() || ''
+      if (isValidVideoUrl(trimmedText) && trimmedText !== lastCheckedClipboardRef.current) {
+        lastCheckedClipboardRef.current = trimmedText
+
+        // Check if auto-download is enabled
+        const settings = await window.api.getSettings()
+        if (settings.autoDownload) {
+          // Auto-download without showing modal
+          window.api.addDownload(trimmedText)
+        } else {
+          // Show clipboard toast for manual action
+          setClipboardUrl(trimmedText)
+        }
+      }
+    } catch (err) {
+      console.error('Clipboard read failed:', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    // Check on mount (delayed to avoid synchronous setState)
+    const timer = setTimeout(checkClipboard, 100)
+
+    // Check when window gains focus
+    window.addEventListener('focus', checkClipboard)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('focus', checkClipboard)
+    }
+  }, [checkClipboard])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      // Ignore if focus is in an input
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
+        return
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault()
+        setAddDownloadModalOpen(true)
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault()
+        setActivePage('Settings')
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+        e.preventDefault()
+        setActivePage('History')
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   const handleAddDownload = (): void => {
     setAddDownloadModalOpen(true)
   }
@@ -184,12 +255,6 @@ function App(): React.ReactElement {
     }
   }
 
-  const handleShowInFolder = (): void => {
-    if (selectedDownloadId) {
-      window.api.showInFolder(selectedDownloadId)
-    }
-  }
-
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     setSearchTerm(e.target.value)
   }
@@ -208,6 +273,15 @@ function App(): React.ReactElement {
   const activeTotalDownloaded = activeDownloads.reduce((acc, d) => acc + d.downloadedSizeInBytes, 0)
   const activeOverallProgress =
     activeTotalSize > 0 ? (activeTotalDownloaded / activeTotalSize) * 100 : 0
+
+  // Calculate counts for badges
+  const activeCount = downloads.filter((d) => d.status === 'downloading').length
+  const completedCount = downloads.filter((d) => d.status === 'completed').length
+  const pausedCount = downloads.filter((d) => d.status === 'paused').length
+  const queuedCount = downloads.filter((d) => d.status === 'queued').length
+  const errorCount = downloads.filter((d) => d.status === 'error').length
+  const cancelledCount = downloads.filter((d) => d.status === 'cancelled').length
+
   const activeRemainingBytes = activeTotalSize - activeTotalDownloaded
   const activeEtaSeconds = totalSpeed > 0 ? activeRemainingBytes / totalSpeed : 0
 
@@ -218,8 +292,6 @@ function App(): React.ReactElement {
     return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`
   }
 
-  const activeCount = downloads.filter((d) => d.status === 'downloading').length
-  const completedCount = downloads.filter((d) => d.status === 'completed').length
 
   return (
     <div className="flex flex-col h-screen bg-bg-deep text-text-main font-sans">
@@ -231,12 +303,6 @@ function App(): React.ReactElement {
         </div>
 
         <div className="tool-group">
-          <ToolbarButton title="Add File" className="primary" onClick={handleAddDownload}>
-            <PlusIcon className="w-5 h-5" /> New File
-          </ToolbarButton>
-        </div>
-
-        <div className="tool-group">
           <ToolbarButton title="Start" onClick={handleResume}>
             <PlayIcon className="w-5 h-5" />
           </ToolbarButton>
@@ -245,12 +311,6 @@ function App(): React.ReactElement {
           </ToolbarButton>
           <ToolbarButton title="Delete" onClick={handleDelete}>
             <TrashIcon className="w-5 h-5" />
-          </ToolbarButton>
-        </div>
-
-        <div className="tool-group">
-          <ToolbarButton title="Open Folder" onClick={handleShowInFolder}>
-            <FolderIcon className="w-5 h-5" />
           </ToolbarButton>
         </div>
 
@@ -291,14 +351,34 @@ function App(): React.ReactElement {
             }}
           />
           <SidebarItem
-            icon={<ActiveIcon className="text-neon-blue" />}
-            label="Active"
+            icon={<PlayIcon className="text-neon-blue" />}
+            label="Downloading"
             isActive={activePage === 'Downloads' && activeFilter === 'Downloading'}
             onClick={() => {
               setActivePage('Downloads')
               setActiveFilter('Downloading')
             }}
             count={activeCount}
+          />
+          <SidebarItem
+            icon={<ListIcon className="text-text-dim" />}
+            label="Queued"
+            isActive={activePage === 'Downloads' && activeFilter === 'Queued'}
+            onClick={() => {
+              setActivePage('Downloads')
+              setActiveFilter('Queued')
+            }}
+            count={queuedCount}
+          />
+          <SidebarItem
+            icon={<PauseIcon className="text-yellow-400" />}
+            label="Paused"
+            isActive={activePage === 'Downloads' && activeFilter === 'Paused'}
+            onClick={() => {
+              setActivePage('Downloads')
+              setActiveFilter('Paused')
+            }}
+             count={pausedCount}
           />
           <SidebarItem
             icon={<CheckCircleIcon className="text-neon-green" />}
@@ -309,6 +389,26 @@ function App(): React.ReactElement {
               setActiveFilter('Completed')
             }}
             count={completedCount}
+          />
+          <SidebarItem
+            icon={<AlertCircleIcon className="text-red-500" />}
+            label="Errors"
+            isActive={activePage === 'Downloads' && activeFilter === 'Error'}
+            onClick={() => {
+              setActivePage('Downloads')
+              setActiveFilter('Error')
+            }}
+            count={errorCount}
+          />
+          <SidebarItem
+            icon={<BanIcon className="text-text-dim" />}
+            label="Cancelled"
+            isActive={activePage === 'Downloads' && activeFilter === 'Cancelled'}
+            onClick={() => {
+              setActivePage('Downloads')
+              setActiveFilter('Cancelled')
+            }}
+            count={cancelledCount}
           />
 
           <div className="sidebar-label">Organization</div>
@@ -347,32 +447,87 @@ function App(): React.ReactElement {
           {activePage === 'Downloads' && displayedDownload && (
             <DownloadDetails download={displayedDownload} />
           )}
+
+          {/* Floating Action Button - Sticky Download CTA */}
+          {activePage === 'Downloads' && (
+            <button
+              onClick={handleAddDownload}
+              className="fixed bottom-20 right-6 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-neon-blue to-neon-purple shadow-lg shadow-neon-blue/30 hover:shadow-neon-blue/50 hover:scale-110 transition-all duration-200 flex items-center justify-center group"
+              title="Add New Download (Ctrl+N)"
+            >
+              <PlusIcon className="w-6 h-6 text-white" />
+              {/* Pulse ring animation */}
+              <span className="absolute inset-0 rounded-full bg-neon-blue/30 animate-ping opacity-75"></span>
+            </button>
+          )}
         </div>
       </div>
 
       {/* FOOTER */}
-      <div className="footer">
-        <div className="speed-box">↓ {formatBytes(totalSpeed)}/s</div>
-        <div className="speed-box">↑ 0 KB/s</div>
-        {activeDownloads.length > 0 && (
-          <>
-            <div className="footer-stat">
-              <span>{activeOverallProgress.toFixed(1)}%</span>
-            </div>
-            <div className="footer-stat">
-              <span>
-                {formatBytes(activeTotalDownloaded)} / {formatBytes(activeTotalSize)}
-              </span>
-            </div>
-            <div className="footer-stat">
-              <span>ETA: {formatEta(activeEtaSeconds)}</span>
-            </div>
-          </>
-        )}
-        <div className="footer-spacer"></div>
-        <div className="speed-box">
-          <div className="connection-dot"></div> Connected
+      {/* FOOTER */}
+      <div
+        className={`footer transition-all duration-300 ease-in-out ${isFooterExpanded ? 'h-32' : 'h-10'}`}
+      >
+        <div className="flex items-center w-full h-10 px-4 gap-4">
+          <button
+            className="text-text-dim hover:text-text-main transition-colors"
+            onClick={() => setFooterExpanded(!isFooterExpanded)}
+          >
+            <ChevronUpIcon
+              className={`w-4 h-4 transform transition-transform ${isFooterExpanded ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          <div className="speed-box">↓ {formatBytes(totalSpeed)}/s</div>
+          <div className="speed-box">↑ 0 KB/s</div>
+          {activeDownloads.length > 0 && (
+            <>
+              <div className="footer-stat">
+                <span className="text-text-dim mr-1">Progress:</span>
+                <span>{activeOverallProgress.toFixed(1)}%</span>
+              </div>
+              <div className="footer-stat">
+                <span className="text-text-dim mr-1">Downloaded:</span>
+                <span>
+                  {formatBytes(activeTotalDownloaded)} / {formatBytes(activeTotalSize)}
+                </span>
+              </div>
+              <div className="footer-stat">
+                <span className="text-text-dim mr-1">Remaining:</span>
+                <span>{formatBytes(activeRemainingBytes)}</span>
+              </div>
+              <div className="footer-stat">
+                <span className="text-text-dim mr-1">ETA:</span>
+                <span>{formatEta(activeEtaSeconds)}</span>
+              </div>
+            </>
+          )}
+          <div className="footer-spacer"></div>
+          <div className="speed-box">
+            <div className="connection-dot"></div> Connected
+          </div>
         </div>
+
+        {/* Expanded Footer Content */}
+        {isFooterExpanded && activeDownloads.length > 0 && (
+          <div className="flex px-4 pb-4 gap-6 h-20 animate-in fade-in slide-in-from-bottom-2">
+            {activeDownloads[0].thumbnail && (
+              <img
+                src={activeDownloads[0].thumbnail}
+                alt="Thumbnail"
+                className="h-full rounded shadow-md object-cover aspect-video bg-black"
+              />
+            )}
+            <div className="flex flex-col justify-center">
+              <div className="text-sm font-medium text-text-main line-clamp-1">
+                {activeDownloads[0].title || activeDownloads[0].url}
+              </div>
+              <div className="text-xs text-text-dim mt-1">
+                {activeDownloads[0].status} • {activeDownloads[0].formatId || 'Default Format'}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <AddDownloadModal
@@ -380,6 +535,18 @@ function App(): React.ReactElement {
         onClose={() => setAddDownloadModalOpen(false)}
         onAdd={handleAddDownloadFromModal}
       />
+
+      {/* Clipboard Detection Toast */}
+      {clipboardUrl && (
+        <ClipboardToast
+          url={clipboardUrl}
+          onDownload={(url) => {
+            window.api.addDownload(url)
+            setClipboardUrl(null)
+          }}
+          onDismiss={() => setClipboardUrl(null)}
+        />
+      )}
     </div>
   )
 }

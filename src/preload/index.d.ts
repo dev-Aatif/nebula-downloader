@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import { Download, DownloadError, PlaylistCheckResult, Settings } from '../main/types'
+import { Download, DownloadError, FormatInfo, PlaylistCheckResult, Settings } from '../main/types'
 
 declare global {
   interface Window {
@@ -42,6 +42,10 @@ declare global {
       onThemeUpdated: (callback: (shouldUseDarkColors: boolean) => void) => () => void
       checkPlaylist: (url: string) => Promise<PlaylistCheckResult | null>
       readClipboard: () => Promise<string>
+      fetchMetadata: (
+        url: string
+      ) => Promise<{ title: string; thumbnail?: string; duration?: string } | null>
+      getFormats: (url: string) => Promise<FormatInfo[] | null>
     }
   }
 }

@@ -29,6 +29,8 @@ const api = {
     ipcRenderer.invoke('open-directory-dialog'),
   openFileDialog: (): Promise<string | undefined> => ipcRenderer.invoke('open-file-dialog'),
   getFormats: (url: string): Promise<FormatInfo[] | null> => ipcRenderer.invoke('get-formats', url),
+  fetchMetadata: (url: string): Promise<VideoMetadata | null> =>
+    ipcRenderer.invoke('fetch-metadata', url),
   onDownloadProgress: (callback: (data: DownloadProgressData) => void): (() => void) => {
     const handler = (_event: Electron.IpcRendererEvent, data: DownloadProgressData): void =>
       callback(data)

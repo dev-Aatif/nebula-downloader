@@ -47,15 +47,52 @@ const DownloadDetails: React.FC<DownloadDetailsProps> = ({ download }) => {
       <div className="details-content">
         {activeTab === 'General' && (
           <>
-            <div className="details-thumb">
-              <FileIcon className="w-12 h-12 text-neon-blue/40" />
+            <div className="details-thumb overflow-hidden bg-black/40">
+              {download.thumbnail ? (
+                <img src={download.thumbnail} alt={title} className="w-full h-full object-cover" />
+              ) : (
+                <FileIcon className="w-12 h-12 text-neon-blue/40" />
+              )}
             </div>
 
             <div className="details-info">
-              <div className="details-title">{title}</div>
+              <div className="details-title select-text">{title}</div>
+              <div className="flex items-center gap-4 mt-1 text-xs text-text-dim border-b border-white/5 pb-2 mb-2">
+                <span className="uppercase font-bold tracking-wider">{download.status}</span>
+                <span>•</span>
+                <span>{formatBytes(totalSizeInBytes)}</span>
+                {download.formatId && (
+                  <>
+                    <span>•</span>
+                    <span className="font-mono bg-white/5 px-1.5 rounded">
+                      {download.formatId}
+                    </span>
+                  </>
+                )}
+              </div>
 
-              <div className="mt-2 grid grid-cols-2 gap-x-12 gap-y-3">
+              <div className="grid grid-cols-2 gap-x-8 gap-y-4">
                 <div className="flex flex-col gap-1">
+                  <span className="text-[10px] uppercase text-text-dim font-bold tracking-tight">
+                    Added On
+                  </span>
+                  <span className="text-xs text-text-main">{formatDate(createdAt)}</span>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] uppercase text-text-dim font-bold tracking-tight">
+                    Save Location
+                  </span>
+                  <span
+                    className="text-xs flex items-center gap-1.5 text-text-main truncate hover:text-neon-blue cursor-pointer transition-colors"
+                    title={outputPath}
+                    onClick={() => window.api.showInFolder(download.id)}
+                  >
+                    <FolderIcon className="w-3.5 h-3.5 opacity-60" /> {outputPath || 'Pending...'}
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-1 col-span-2">
                   <span className="text-[10px] uppercase text-text-dim font-bold tracking-tight">
                     Source URL
                   </span>
@@ -63,35 +100,10 @@ const DownloadDetails: React.FC<DownloadDetailsProps> = ({ download }) => {
                     href={url}
                     target="_blank"
                     rel="noreferrer"
-                    className="details-link truncate flex items-center gap-1.5 text-xs"
+                    className="details-link truncate flex items-center gap-1.5 text-xs text-neon-blue hover:underline"
                   >
                     <ExternalLinkIcon className="w-3.5 h-3.5" /> {url}
                   </a>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <span className="text-[10px] uppercase text-text-dim font-bold tracking-tight">
-                    Save Location
-                  </span>
-                  <span className="text-xs flex items-center gap-1.5 text-text-main truncate">
-                    <FolderIcon className="w-3.5 h-3.5 opacity-60" /> {outputPath || 'Pending...'}
-                  </span>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <span className="text-[10px] uppercase text-text-dim font-bold tracking-tight">
-                    File Size
-                  </span>
-                  <span className="text-xs font-mono">
-                    {totalSizeInBytes ? formatBytes(totalSizeInBytes) : 'Unknown'}
-                  </span>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <span className="text-[10px] uppercase text-text-dim font-bold tracking-tight">
-                    Date Added
-                  </span>
-                  <span className="text-xs">{formatDate(createdAt)}</span>
                 </div>
               </div>
             </div>

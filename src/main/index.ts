@@ -53,7 +53,7 @@ async function getVideoInfo(url: string): Promise<Partial<Download> | null> {
           const jsonOutput = JSON.parse(stdout)
           const info: Partial<Download> = {
             title: jsonOutput.title,
-            totalSizeInBytes: jsonOutput.filesize_approx || jsonOutput.filesize || 0
+            totalSizeInBytes: jsonOutput.filesize || jsonOutput.filesize_approx || 0
           }
           resolve(info)
         } catch (error) {
@@ -117,6 +117,12 @@ electron.app.whenReady().then(async () => {
   if (!fs.existsSync(downloadsPath)) {
     fs.mkdirSync(downloadsPath, { recursive: true })
   }
+
+  console.log('='.repeat(60))
+  console.log('Nebula Downloader - Ready')
+  console.log('='.repeat(60))
+  console.log(`Download Directory: ${downloadsPath}`)
+  console.log('='.repeat(60))
 
   if (process.platform !== 'darwin') {
     const iconPath = join(__dirname, '../../resources/icon.png')
@@ -224,6 +230,84 @@ electron.app.whenReady().then(async () => {
     })
     return canceled ? undefined : filePaths[0]
   })
+
+  // Fetch video metadata for preview (before downloading)
+  electron.ipcMain.handle(
+    'fetch-metadata',
+    async (
+      _,
+      url: string
+    ): Promise<{
+      title: string
+      thumbnail?: string
+      duration?: string
+      isPlaylist?: boolean
+      playlistItems?: { url: string; title: string }[]
+    } | null> => {
+      return new Promise((resolve) => {
+        const settings = db.getSettings()
+        const ytdlpPath =
+          settings.ytDlpPath ||
+          (process.env.NODE_ENV === 'development'
+            ? join(process.cwd(), 'bin', 'yt-dlp')
+            : join(process.resourcesPath, 'bin', 'yt-dlp'))
+
+        const formatProcess = spawn(ytdlpPath, [
+          '--dump-single-json',
+          '--flat-playlist',
+          '--no-download',
+          url
+        ])
+        let stdout = ''
+
+        formatProcess.stdout.on('data', (data) => {
+          stdout += data.toString()
+        })
+
+        formatProcess.on('close', (code) => {
+          if (code === 0) {
+            try {
+              const jsonOutput = JSON.parse(stdout)
+
+              if (jsonOutput._type === 'playlist') {
+                // It's a playlist
+                const playlistItems = jsonOutput.entries.map((entry: any) => ({
+                  url:
+                    entry.url ||
+                    entry.original_url ||
+                    `https://www.youtube.com/watch?v=${entry.id}`,
+                  title: entry.title
+                }))
+                resolve({
+                  title: jsonOutput.title,
+                  isPlaylist: true,
+                  playlistItems
+                })
+              } else {
+                // It's a single video
+                const duration = jsonOutput.duration
+                  ? new Date(jsonOutput.duration * 1000).toISOString().substr(11, 8)
+                  : undefined
+                resolve({
+                  title: jsonOutput.title,
+                  thumbnail: jsonOutput.thumbnail,
+                  duration,
+                  isPlaylist: false
+                })
+              }
+            } catch (e) {
+              console.error('Error parsing yt-dlp output:', e)
+              resolve(null)
+            }
+          } else {
+            console.error('yt-dlp exited with code', code)
+            resolve(null)
+          }
+        })
+        formatProcess.on('error', () => resolve(null))
+      })
+    }
+  )
 
   electron.ipcMain.handle('get-formats', async (_, url: string): Promise<FormatInfo[] | null> => {
     return new Promise((resolve) => {
@@ -377,7 +461,7 @@ electron.app.whenReady().then(async () => {
       console.log(`Pausing download ${downloadId}`)
       pauseDownload(downloadId)
       await db.updateDownload(downloadId, { status: 'paused' })
-      mainWindow?.webContents.send('download-paused', downloadId)
+      mainWindow?.webContents.send('download-paused', { id: downloadId })
     }
   })
 

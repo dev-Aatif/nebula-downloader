@@ -1,4 +1,10 @@
-export type DownloadStatus = 'queued' | 'downloading' | 'paused' | 'completed' | 'error'
+export type DownloadStatus =
+  | 'queued'
+  | 'downloading'
+  | 'paused'
+  | 'completed'
+  | 'error'
+  | 'cancelled'
 
 export type DownloadError = {
   timestamp: Date
@@ -23,11 +29,20 @@ export type Download = {
   formatId?: string // New property to store the selected yt-dlp format string
   errorLogs?: DownloadError[] // Array to store detailed error logs
   speedValue?: number
+  thumbnail?: string // URL path to the thumbnail
 }
 
 export type PlaylistItem = {
   url: string
   title: string
+}
+
+export type VideoMetadata = {
+  title: string
+  thumbnail?: string
+  duration?: string
+  isPlaylist?: boolean
+  playlistItems?: PlaylistItem[]
 }
 
 export type PlaylistCheckResult = PlaylistItem[]
@@ -63,4 +78,7 @@ export type Settings = {
   ffmpegPath: string
   defaultFormat: string
   proxy: string
+  lastPreset?: string // Remember last used quality preset
+  downloadSubtitles?: boolean // Remember subtitle preference
+  autoDownload?: boolean // Skip config modal and download immediately
 }

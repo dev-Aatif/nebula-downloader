@@ -8,7 +8,9 @@ interface DownloadRowProps {
   download: Download
   index: number
   isSelected: boolean
+  isMultiSelected?: boolean
   onSelect: (id: string) => void
+  onMultiSelect?: (id: string) => void
   onPause: (id: string) => void
   onResume: (id: string) => void
   onDelete: (id: string) => void
@@ -19,16 +21,26 @@ interface DownloadRowProps {
 const DownloadRow: React.FC<DownloadRowProps> = ({
   download,
   isSelected,
+  isMultiSelected = false,
   onSelect,
+  onMultiSelect,
   onPause,
   onResume,
   onDelete,
   onOpenFile,
-  onShowInFolder
+  onShowInFolder,
+  index
 }) => {
-  const { title, totalSizeInBytes, downloadedSizeInBytes, progress, status, speedValue } = download
+  const { title, totalSizeInBytes, downloadedSizeInBytes, progress, status, speedValue, createdAt, updatedAt, outputPath } =
+    download
 
   const remainingBytes = totalSizeInBytes - downloadedSizeInBytes
+
+  // Calculate average speed for completed items
+  const averageSpeed =
+    status === 'completed' && updatedAt && createdAt
+      ? totalSizeInBytes / ((new Date(updatedAt).getTime() - new Date(createdAt).getTime()) / 1000)
+      : 0
 
   const getEta = (): string => {
     if (!speedValue || speedValue === 0 || !totalSizeInBytes || progress === 100) return ''
@@ -46,28 +58,50 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
       className={`grid-row download-row ${isSelected ? 'selected' : ''}`}
       onClick={(): void => onSelect(download.id)}
     >
-      <div className="flex justify-center">
+      <div
+        className="flex justify-center cursor-pointer"
+        onClick={(e): void => {
+          e.stopPropagation()
+          if (onMultiSelect) {
+            onMultiSelect(download.id)
+          }
+        }}
+      >
         <div
-          className={`w-3.5 h-3.5 border rounded-sm flex items-center justify-center transition-all ${
-            isSelected
+          className={`w-4 h-4 border rounded flex items-center justify-center transition-all ${
+            isMultiSelected
               ? 'border-neon-blue bg-neon-blue/20 shadow-[0_0_8px_rgba(0,243,255,0.3)]'
-              : 'border-white/10 bg-white/5'
+              : 'border-white/20 bg-black/20 hover:border-white/40'
           }`}
         >
-          {isSelected && <CheckIcon className="w-2.5 h-2.5 text-neon-blue" />}
+          {isMultiSelected && <CheckIcon className="w-3 h-3 text-neon-blue" />}
         </div>
       </div>
-      <div className="flex justify-center">
-        <FolderIcon className={`w-4 h-4 ${isSelected ? 'text-neon-blue' : 'text-text-dim'}`} />
+      <div className="flex justify-center font-mono text-text-dim text-xs">
+        {index + 1}
       </div>
-      <div className="name-col truncate font-medium">{title}</div>
+      <div
+        className="name-col truncate font-medium hover:text-neon-blue cursor-pointer transition-colors flex flex-col justify-center"
+        onClick={() => onSelect(download.id)} // Click title to open details
+      >
+        <div className="truncate">{title}</div>
+        <div className="text-[10px] text-text-dim truncate font-normal opacity-70" title={outputPath}>
+          {outputPath || 'Location pending...'}
+        </div>
+      </div>
       <div className="justify-center">
         <span className={`status-pill ${status}`}>
           {status === 'downloading' ? `${Math.floor(progress)}% ${eta ? `· ${eta}` : ''}` : status}
         </span>
       </div>
       <div className="justify-center text-neon-blue font-mono text-[11px]">
-        {speedValue && speedValue > 0 ? `${formatBytes(speedValue)}/s` : '—'}
+        {status === 'completed'
+          ? averageSpeed && isFinite(averageSpeed) && averageSpeed > 0
+            ? `${formatBytes(averageSpeed)}/s (avg)`
+            : '—'
+          : speedValue && speedValue > 0
+            ? `${formatBytes(speedValue)}/s`
+            : '—'}
       </div>
       <div
         className="justify-center font-mono text-[11px]"
