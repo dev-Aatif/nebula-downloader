@@ -1,5 +1,5 @@
 import React from 'react'
-import { HelpIcon, DownloadIcon, SettingsIcon, ClockIcon } from '../components/icons'
+import { HelpIcon, DownloadIcon } from '../components/icons'
 
 export default function Help(): React.JSX.Element {
   return (
@@ -214,11 +214,73 @@ export default function Help(): React.JSX.Element {
 
         {/* About Section */}
         <section className="border-t border-white/10 pt-8">
-          <div className="text-center space-y-2">
+          <div className="text-center space-y-2 mb-8">
             <h3 className="text-xl font-semibold text-text-main">Nebula Downloader</h3>
             <p className="text-text-dim text-sm">Version 1.0.0</p>
-            <p className="text-text-dim text-xs">
-              Powered by yt-dlp | Built with Electron & React
+          </div>
+
+          {/* Open Source Credits */}
+          <div className="bg-card/30 border border-border-glass rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-text-main mb-4 flex items-center gap-2">
+              ❤️ Open Source Credits
+            </h3>
+            <p className="text-text-dim text-sm mb-4">
+              Nebula Downloader is built on the shoulders of these amazing open source projects:
+            </p>
+            <div className="grid gap-3">
+              <div className="flex items-start gap-3 p-3 bg-white/5 rounded-lg">
+                <span className="text-xl">📥</span>
+                <div>
+                  <strong className="text-text-main">yt-dlp</strong>
+                  <span className="text-xs text-neon-blue ml-2">Unlicense</span>
+                  <p className="text-text-dim text-xs mt-1">
+                    A youtube-dl fork with additional features. The core engine powering all downloads.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 bg-white/5 rounded-lg">
+                <span className="text-xl">🎬</span>
+                <div>
+                  <strong className="text-text-main">FFmpeg</strong>
+                  <span className="text-xs text-neon-blue ml-2">LGPL/GPL</span>
+                  <p className="text-text-dim text-xs mt-1">
+                    Complete solution for audio/video processing, merging, and conversion.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 bg-white/5 rounded-lg">
+                <span className="text-xl">⚡</span>
+                <div>
+                  <strong className="text-text-main">Electron</strong>
+                  <span className="text-xs text-neon-blue ml-2">MIT</span>
+                  <p className="text-text-dim text-xs mt-1">
+                    Framework for building cross-platform desktop applications.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 bg-white/5 rounded-lg">
+                <span className="text-xl">⚛️</span>
+                <div>
+                  <strong className="text-text-main">React</strong>
+                  <span className="text-xs text-neon-blue ml-2">MIT</span>
+                  <p className="text-text-dim text-xs mt-1">
+                    JavaScript library for building user interfaces.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 bg-white/5 rounded-lg">
+                <span className="text-xl">🎨</span>
+                <div>
+                  <strong className="text-text-main">Tailwind CSS</strong>
+                  <span className="text-xs text-neon-blue ml-2">MIT</span>
+                  <p className="text-text-dim text-xs mt-1">
+                    Utility-first CSS framework for modern styling.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <p className="text-text-dim text-xs mt-4 text-center">
+              See our GitHub repository for complete license information.
             </p>
           </div>
         </section>

@@ -18,6 +18,7 @@ const api = {
   pauseDownload: (id: string): void => ipcRenderer.send('pause-download', id),
   resumeDownload: (id: string): void => ipcRenderer.send('resume-download', id),
   deleteDownload: (id: string): void => ipcRenderer.send('delete-download', id),
+  retryDownload: (id: string): void => ipcRenderer.send('retry-download', id),
   pauseAllDownloads: (): void => ipcRenderer.send('pause-all-downloads'),
   resumeAllDownloads: (): void => ipcRenderer.send('resume-all-downloads'),
   openFile: (id: string): void => ipcRenderer.send('open-file', id),
@@ -29,7 +30,9 @@ const api = {
     ipcRenderer.invoke('open-directory-dialog'),
   openFileDialog: (): Promise<string | undefined> => ipcRenderer.invoke('open-file-dialog'),
   getFormats: (url: string): Promise<FormatInfo[] | null> => ipcRenderer.invoke('get-formats', url),
-  fetchMetadata: (url: string): Promise<VideoMetadata | null> =>
+  fetchMetadata: (
+    url: string
+  ): Promise<{ title: string; thumbnail?: string; duration?: string } | null> =>
     ipcRenderer.invoke('fetch-metadata', url),
   onDownloadProgress: (callback: (data: DownloadProgressData) => void): (() => void) => {
     const handler = (_event: Electron.IpcRendererEvent, data: DownloadProgressData): void =>

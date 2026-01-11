@@ -144,15 +144,39 @@ const DownloadDetails: React.FC<DownloadDetailsProps> = ({ download }) => {
         {activeTab === 'Log' && (
           <div className="flex-1 overflow-y-auto bg-black/20 rounded border border-white/5 p-3">
             <div className="font-mono text-[11px] space-y-1">
+              {/* Download initialized - use createdAt */}
               <div className="text-text-dim">
-                [{new Date().toLocaleTimeString()}] Download initialized...
+                [{new Date(createdAt).toLocaleTimeString()}] Download initialized
               </div>
-              <div className="text-text-dim">
-                [{new Date().toLocaleTimeString()}] Connecting to server...
-              </div>
-              <div className="text-neon-green/60">
-                [{new Date().toLocaleTimeString()}] Stream established. Downloading payload.
-              </div>
+              
+              {/* Show current status with updatedAt timestamp */}
+              {download.status === 'downloading' && (
+                <div className="text-neon-blue/80">
+                  [{new Date(download.updatedAt || createdAt).toLocaleTimeString()}] Downloading... {download.progress.toFixed(1)}%
+                </div>
+              )}
+              {download.status === 'paused' && (
+                <div className="text-yellow-500/80">
+                  [{new Date(download.updatedAt || createdAt).toLocaleTimeString()}] Download paused
+                </div>
+              )}
+              {download.status === 'completed' && (
+                <div className="text-neon-green/80">
+                  [{new Date(download.updatedAt || createdAt).toLocaleTimeString()}] Download completed successfully
+                </div>
+              )}
+              {download.status === 'queued' && (
+                <div className="text-text-dim">
+                  [{new Date(download.updatedAt || createdAt).toLocaleTimeString()}] Waiting in queue...
+                </div>
+              )}
+              {download.status === 'cancelled' && (
+                <div className="text-text-dim">
+                  [{new Date(download.updatedAt || createdAt).toLocaleTimeString()}] Download cancelled
+                </div>
+              )}
+              
+              {/* Error logs with real timestamps */}
               {download.errorLogs?.map((log, i) => (
                 <div key={i} className="text-neon-red/80">
                   [{new Date(log.timestamp).toLocaleTimeString()}] ERROR: {log.message}

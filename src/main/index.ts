@@ -237,13 +237,7 @@ electron.app.whenReady().then(async () => {
     async (
       _,
       url: string
-    ): Promise<{
-      title: string
-      thumbnail?: string
-      duration?: string
-      isPlaylist?: boolean
-      playlistItems?: { url: string; title: string }[]
-    } | null> => {
+    ): Promise<{ title: string; thumbnail?: string; duration?: string } | null> => {
       return new Promise((resolve) => {
         const settings = db.getSettings()
         const ytdlpPath =
@@ -253,9 +247,9 @@ electron.app.whenReady().then(async () => {
             : join(process.resourcesPath, 'bin', 'yt-dlp'))
 
         const formatProcess = spawn(ytdlpPath, [
-          '--dump-single-json',
-          '--flat-playlist',
+          '--dump-json',
           '--no-download',
+          '--no-playlist',
           url
         ])
         let stdout = ''
@@ -268,39 +262,18 @@ electron.app.whenReady().then(async () => {
           if (code === 0) {
             try {
               const jsonOutput = JSON.parse(stdout)
-
-              if (jsonOutput._type === 'playlist') {
-                // It's a playlist
-                const playlistItems = jsonOutput.entries.map((entry: any) => ({
-                  url:
-                    entry.url ||
-                    entry.original_url ||
-                    `https://www.youtube.com/watch?v=${entry.id}`,
-                  title: entry.title
-                }))
-                resolve({
-                  title: jsonOutput.title,
-                  isPlaylist: true,
-                  playlistItems
-                })
-              } else {
-                // It's a single video
-                const duration = jsonOutput.duration
-                  ? new Date(jsonOutput.duration * 1000).toISOString().substr(11, 8)
-                  : undefined
-                resolve({
-                  title: jsonOutput.title,
-                  thumbnail: jsonOutput.thumbnail,
-                  duration,
-                  isPlaylist: false
-                })
-              }
-            } catch (e) {
-              console.error('Error parsing yt-dlp output:', e)
+              const duration = jsonOutput.duration
+                ? `${Math.floor(jsonOutput.duration / 60)}:${String(jsonOutput.duration % 60).padStart(2, '0')}`
+                : undefined
+              resolve({
+                title: jsonOutput.title || 'Unknown Title',
+                thumbnail: jsonOutput.thumbnail,
+                duration
+              })
+            } catch {
               resolve(null)
             }
           } else {
-            console.error('yt-dlp exited with code', code)
             resolve(null)
           }
         })
@@ -326,7 +299,7 @@ electron.app.whenReady().then(async () => {
         }
       }
 
-      const formatProcess = spawn(ytdlpPath, ['--dump-json', url])
+      const formatProcess = spawn(ytdlpPath, ['--dump-json', '--no-playlist', url])
       let stdout = ''
       let stderr = ''
 
@@ -392,6 +365,12 @@ electron.app.whenReady().then(async () => {
         let stdout = ''
         let stderr = ''
 
+        const timeout = setTimeout(() => {
+          console.warn(`Playlist check timed out for ${url}`)
+          playlistProcess.kill()
+          resolve(null)
+        }, 30000)
+
         playlistProcess.stdout.on('data', (data) => {
           stdout += data.toString()
         })
@@ -401,6 +380,7 @@ electron.app.whenReady().then(async () => {
         })
 
         playlistProcess.on('close', (code) => {
+          clearTimeout(timeout)
           if (code === 0) {
             try {
               const lines = stdout.split('\n').filter(Boolean)
@@ -422,6 +402,7 @@ electron.app.whenReady().then(async () => {
           }
         })
         playlistProcess.on('error', (err) => {
+          clearTimeout(timeout)
           console.error('Failed to start yt-dlp process:', err)
           resolve(null)
         })
@@ -483,6 +464,36 @@ electron.app.whenReady().then(async () => {
   electron.ipcMain.on('resume-all-downloads', async () => {
     if (mainWindow) {
       resumeAllDownloads(mainWindow)
+    }
+  })
+
+  electron.ipcMain.on('retry-download', async (_, downloadId: string) => {
+    const download = await db.getDownload(downloadId)
+    if (download && download.status === 'error') {
+      console.log(`Retrying download ${downloadId}`)
+      // Reset the download state for retry
+      await db.updateDownload(downloadId, {
+        status: 'queued',
+        progress: 0,
+        downloadedSizeInBytes: 0,
+        speed: '',
+        eta: '',
+        errorLogs: [] // Clear previous errors
+      })
+      // Notify the renderer about the updated download
+      const updatedDownload = await db.getDownload(downloadId)
+      if (updatedDownload && mainWindow) {
+        mainWindow.webContents.send('download-progress', {
+          id: downloadId,
+          progress: 0,
+          speed: '',
+          eta: '',
+          totalSize: '',
+          status: 'queued',
+          speedValue: 0
+        })
+        startDownload(updatedDownload, mainWindow)
+      }
     }
   })
 
@@ -564,4 +575,15 @@ electron.app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     electron.app.quit()
   }
+})
+
+// Persist queue state before quitting - mark active downloads as queued for resume
+electron.app.on('before-quit', () => {
+  const downloads = db.getDownloads()
+  downloads
+    .filter((d) => d.status === 'downloading')
+    .forEach((d) => {
+      db.updateDownload(d.id, { status: 'queued' })
+    })
+  pauseAllDownloads()
 })

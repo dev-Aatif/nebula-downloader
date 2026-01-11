@@ -67,3 +67,41 @@ export function truncateUrl(url: string, maxLength = 50): string {
   if (url.length <= maxLength) return url
   return url.substring(0, maxLength - 3) + '...'
 }
+
+/**
+ * Get a user-friendly validation message for URL input
+ * @param text - The text to validate
+ * @returns Validation message or null if valid
+ */
+export function getUrlValidationMessage(text: string): string | null {
+  if (!text || text.trim().length === 0) {
+    return null // Empty is fine, don't show error
+  }
+
+  const trimmed = text.trim()
+
+  // Check for http/https prefix
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    return 'URL must start with http:// or https://'
+  }
+
+  try {
+    new URL(trimmed)
+    // Valid URL structure - accept it (yt-dlp supports many sites)
+    return null
+  } catch {
+    return 'Please enter a valid URL. Supported: YouTube, Vimeo, Twitter, TikTok, Instagram, Facebook, and 1000+ more sites.'
+  }
+}
+
+// Export platform list for UI display
+export const SUPPORTED_PLATFORMS = [
+  { name: 'YouTube', icon: '📺' },
+  { name: 'Vimeo', icon: '🎬' },
+  { name: 'Twitter/X', icon: '🐦' },
+  { name: 'TikTok', icon: '🎵' },
+  { name: 'Instagram', icon: '📷' },
+  { name: 'Facebook', icon: '👍' },
+  { name: 'Twitch', icon: '🎮' },
+  { name: 'Reddit', icon: '🔗' }
+]

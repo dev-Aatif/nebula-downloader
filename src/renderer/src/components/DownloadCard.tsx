@@ -8,6 +8,7 @@ export default function DownloadCard({
   download,
   onPause,
   onResume,
+  onRetry,
   onDelete,
   onOpenFile,
   onShowInFolder
@@ -15,6 +16,7 @@ export default function DownloadCard({
   download: Download
   onPause: (id: string) => void
   onResume: (id: string) => void
+  onRetry: (id: string) => void
   onDelete: (id: string) => void
   onOpenFile: (id: string) => void
   onShowInFolder: (id: string) => void
@@ -57,6 +59,7 @@ export default function DownloadCard({
           download={download}
           onPause={onPause}
           onResume={onResume}
+          onRetry={onRetry}
           onDelete={onDelete}
           onOpenFile={onOpenFile}
           onShowInFolder={onShowInFolder}

@@ -10,6 +10,7 @@ declare global {
       pauseDownload: (id: string) => void
       resumeDownload: (id: string) => void
       deleteDownload: (id: string) => void
+      retryDownload: (id: string) => void
       openFile: (id: string) => void
       showInFolder: (id: string) => void
       pauseAllDownloads: () => void

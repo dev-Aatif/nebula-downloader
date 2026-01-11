@@ -9,7 +9,7 @@ export type DownloadStatus =
 export type DownloadError = {
   timestamp: Date
   message: string
-  type: 'yt-dlp' | 'process-spawn' | 'general'
+  type: 'yt-dlp' | 'process-spawn' | 'general' | 'storage' | 'network'
   details?: string // More detailed error output, like stderr
 }
 
@@ -30,19 +30,12 @@ export type Download = {
   errorLogs?: DownloadError[] // Array to store detailed error logs
   speedValue?: number
   thumbnail?: string // URL path to the thumbnail
+  retryCount?: number // Number of auto-retry attempts
 }
 
 export type PlaylistItem = {
   url: string
   title: string
-}
-
-export type VideoMetadata = {
-  title: string
-  thumbnail?: string
-  duration?: string
-  isPlaylist?: boolean
-  playlistItems?: PlaylistItem[]
 }
 
 export type PlaylistCheckResult = PlaylistItem[]
@@ -81,4 +74,6 @@ export type Settings = {
   lastPreset?: string // Remember last used quality preset
   downloadSubtitles?: boolean // Remember subtitle preference
   autoDownload?: boolean // Skip config modal and download immediately
+  hasSeenDisclaimer?: boolean // Track if user has seen the copyright disclaimer
+  speedLimit?: number // Download speed limit in KB/s (0 = unlimited)
 }

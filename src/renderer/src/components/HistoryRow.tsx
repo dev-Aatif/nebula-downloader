@@ -92,6 +92,7 @@ const HistoryRow: React.FC<HistoryRowProps> = ({
           onDelete={onDelete}
           onPause={() => {}}
           onResume={() => {}}
+          onRetry={() => {}}
         />
       </div>
     </div>

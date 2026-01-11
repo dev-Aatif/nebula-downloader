@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { ClipboardIcon, DownloadIcon, ChevronDownIcon, SettingsIcon } from './icons'
 import { InfoIcon } from './Tooltip'
-import { isValidVideoUrl } from '../utils/urlValidator'
+import { isValidVideoUrl, getUrlValidationMessage } from '../utils/urlValidator'
+import PlaylistModal from './PlaylistModal'
+import type { PlaylistItem } from '../../../main/types'
 
 interface AddDownloadModalProps {
   isOpen: boolean
@@ -60,6 +62,11 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({ isOpen, onClose, on
   const inputRef = useRef<HTMLInputElement>(null)
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastFetchedUrlRef = useRef<string>('')
+
+  // Playlist detection state
+  const [playlistItems, setPlaylistItems] = useState<PlaylistItem[]>([])
+  const [isCheckingPlaylist, setIsCheckingPlaylist] = useState(false)
+  const [showPlaylistModal, setShowPlaylistModal] = useState(false)
 
   // Extract URLs from batch input
   const batchUrls = isBatchMode
@@ -142,7 +149,7 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({ isOpen, onClose, on
       setMetadata(null)
       lastFetchedUrlRef.current = ''
     }
-  }, [isOpen])
+  }, [isOpen, selectedPreset, downloadSubtitles])
 
   const handlePasteFromClipboard = async (): Promise<void> => {
     setIsPasting(true)
@@ -162,31 +169,68 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({ isOpen, onClose, on
     return null
   }
 
-  const handleAdd = (): void => {
-    if (isUrlValid) {
-      setIsAdding(true)
-      const preset = FORMAT_PRESETS.find((p) => p.id === selectedPreset)
-      const formatId = preset?.value || undefined
+  const handleAdd = async (): Promise<void> => {
+    if (!isUrlValid || isAdding || isCheckingPlaylist) return
 
-      setTimeout(() => {
-        if (isBatchMode && batchUrls.length > 0) {
-          // Add all valid URLs in batch
-          batchUrls.forEach((batchUrl) => {
-            onAdd(batchUrl, formatId)
-          })
-        } else {
-          onAdd(url, formatId)
-        }
-        setUrl('')
-        setIsAdding(false)
-        onClose()
-      }, 150)
+    // Clear any pending metadata fetch
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current)
     }
+
+
+    // Check if it's a playlist first (only for single URL mode)
+    if (!isBatchMode && !playlistItems.length) {
+      setIsCheckingPlaylist(true)
+      try {
+        const items = await window.api.checkPlaylist(url.trim())
+        if (items && items.length > 1) {
+          setPlaylistItems(items)
+          setShowPlaylistModal(true)
+          setIsCheckingPlaylist(false)
+          return
+        }
+      } catch (err) {
+        console.error('Playlist check failed:', err)
+      }
+      setIsCheckingPlaylist(false)
+    }
+
+    // Proceed with regular download
+    setIsAdding(true)
+    const preset = FORMAT_PRESETS.find((p) => p.id === selectedPreset)
+    const formatId = preset?.value || undefined
+
+    setTimeout(() => {
+      if (isBatchMode && batchUrls.length > 0) {
+        batchUrls.forEach((batchUrl) => {
+          onAdd(batchUrl, formatId)
+        })
+      } else {
+        onAdd(url, formatId)
+      }
+      setUrl('')
+      setPlaylistItems([])
+      setIsAdding(false)
+      onClose()
+    }, 150)
+  }
+
+  const handleDownloadPlaylistItems = (selectedUrls: string[]): void => {
+    const preset = FORMAT_PRESETS.find((p) => p.id === selectedPreset)
+    const formatId = preset?.value || undefined
+    selectedUrls.forEach((selectedUrl) => {
+      onAdd(selectedUrl, formatId)
+    })
+    setShowPlaylistModal(false)
+    setPlaylistItems([])
+    setUrl('')
+    onClose()
   }
 
   const handleKeyDown = (e: React.KeyboardEvent): void => {
-    if (e.key === 'Enter' && isUrlValid) {
+    if (e.key === 'Enter' && isUrlValid && !isAdding && !isCheckingPlaylist) {
       handleAdd()
+
     } else if (e.key === 'Escape') {
       onClose()
     }
@@ -267,7 +311,11 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({ isOpen, onClose, on
               : 'Paste URLs separated by new lines or commas'}
           </p>
         ) : (
-          url && !isUrlValid && <p className="text-xs text-red-400 mt-1.5">Please enter a valid video URL</p>
+          url && !isUrlValid && (
+            <p className="text-xs text-red-400 mt-1.5">
+              {getUrlValidationMessage(url) || 'Please enter a valid video URL'}
+            </p>
+          )
         )}
 
         {/* Metadata Preview */}
@@ -376,12 +424,28 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({ isOpen, onClose, on
 
         <div className="modal-actions">
           <button onClick={onClose} className="tool-btn btn-lg">Cancel</button>
-          <button onClick={handleAdd} className={getButtonClasses()} disabled={!isUrlValid || isAdding}>
-            <DownloadIcon className={`w-4 h-4 ${isAdding ? 'animate-bounce' : ''}`} />
-            {isAdding ? 'Adding...' : 'Add Download'}
+          <button
+            onClick={handleAdd}
+            className={getButtonClasses()}
+            disabled={!isUrlValid || isAdding || isCheckingPlaylist}
+          >
+            <DownloadIcon className={`w-4 h-4 ${isAdding || isCheckingPlaylist ? 'animate-bounce' : ''}`} />
+            {isCheckingPlaylist ? 'Checking...' : isAdding ? 'Adding...' : 'Add Download'}
           </button>
         </div>
       </div>
+
+      {/* Playlist Selection Modal */}
+      {showPlaylistModal && playlistItems.length > 0 && (
+        <PlaylistModal
+          playlistItems={playlistItems}
+          onClose={() => {
+            setShowPlaylistModal(false)
+            setPlaylistItems([])
+          }}
+          onDownloadSelected={handleDownloadPlaylistItems}
+        />
+      )}
     </div>
   )
 }

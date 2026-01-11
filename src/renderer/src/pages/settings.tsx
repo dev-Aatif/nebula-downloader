@@ -184,6 +184,22 @@ export default function SettingsPage(): React.JSX.Element {
                 <div className="w-24">{renderInput('concurrency', 'number')}</div>
               </SettingsRow>
 
+              <SettingsRow label="Speed Limit" description="Limit download bandwidth (0 = unlimited)">
+                <div className="flex items-center gap-2">
+                  <div className="w-24">
+                    <input
+                      type="number"
+                      name="speedLimit"
+                      value={settings.speedLimit || 0}
+                      onChange={handleChange}
+                      min="0"
+                      className="bg-[#0d111a] border border-white/10 rounded-md p-2 text-sm w-full focus:border-neon-blue focus:outline-none transition-colors"
+                    />
+                  </div>
+                  <span className="text-text-dim text-sm">KB/s</span>
+                </div>
+              </SettingsRow>
+
               <SettingsRow
                 label="Preferred Format"
                 description="Select a preset or define a custom yt-dlp format string."

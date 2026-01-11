@@ -1,7 +1,7 @@
 /* eslint-disable react/prop-types */
 import type { Download } from '../../../main/types'
 import ThreeDotMenu from './ThreeDotMenu'
-import { FolderIcon, CheckIcon } from './icons'
+import { CheckIcon } from './icons'
 import { formatBytes } from '../utils'
 
 interface DownloadRowProps {
@@ -13,6 +13,7 @@ interface DownloadRowProps {
   onMultiSelect?: (id: string) => void
   onPause: (id: string) => void
   onResume: (id: string) => void
+  onRetry: (id: string) => void
   onDelete: (id: string) => void
   onOpenFile: (id: string) => void
   onShowInFolder: (id: string) => void
@@ -26,6 +27,7 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
   onMultiSelect,
   onPause,
   onResume,
+  onRetry,
   onDelete,
   onOpenFile,
   onShowInFolder,
@@ -88,6 +90,11 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
         <div className="text-[10px] text-text-dim truncate font-normal opacity-70" title={outputPath}>
           {outputPath || 'Location pending...'}
         </div>
+        {status === 'error' && download.errorLogs && download.errorLogs.length > 0 && (
+          <div className="text-[10px] text-neon-red truncate font-medium mt-0.5">
+            Error: {download.errorLogs[download.errorLogs.length - 1].message}
+          </div>
+        )}
       </div>
       <div className="justify-center">
         <span className={`status-pill ${status}`}>
@@ -122,6 +129,7 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
           download={download}
           onPause={onPause}
           onResume={onResume}
+          onRetry={onRetry}
           onDelete={onDelete}
           onOpenFile={onOpenFile}
           onShowInFolder={onShowInFolder}

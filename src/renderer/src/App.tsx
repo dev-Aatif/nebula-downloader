@@ -6,6 +6,7 @@ import Help from './pages/Help'
 import AddDownloadModal from './components/AddDownloadModal'
 import DownloadDetails from './components/DownloadDetails'
 import ClipboardToast from './components/ClipboardToast'
+import DisclaimerModal from './components/DisclaimerModal'
 import type { Download } from '../../main/types'
 import { isValidVideoUrl } from './utils/urlValidator'
 import {
@@ -89,9 +90,26 @@ function App(): React.ReactElement {
   const [activeDownloadId, setActiveDownloadId] = useState<string | null>(null)
   const [isFooterExpanded, setFooterExpanded] = useState(false)
 
+  // Copyright disclaimer state
+  const [showDisclaimer, setShowDisclaimer] = useState(false)
+
   // Clipboard detection state
   const [clipboardUrl, setClipboardUrl] = useState<string | null>(null)
   const lastCheckedClipboardRef = useRef<string>('')
+
+  // Check settings on load for first-launch disclaimer
+  useEffect(() => {
+    window.api.getSettings().then((settings) => {
+      if (!settings.hasSeenDisclaimer) {
+        setShowDisclaimer(true)
+      }
+    })
+  }, [])
+
+  const handleAcceptDisclaimer = async (): Promise<void> => {
+    await window.api.updateSettings({ hasSeenDisclaimer: true })
+    setShowDisclaimer(false)
+  }
 
   useEffect(() => {
     const unlistenLoaded = window.api.onDownloadsLoaded((loadedDownloads) => {
@@ -226,6 +244,43 @@ function App(): React.ReactElement {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
+  // Network Loss Handling: auto-pause when offline, auto-resume when online
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const pausedByNetworkRef = useRef<string[]>([])
+
+  useEffect(() => {
+    const handleOffline = (): void => {
+      setIsOnline(false)
+      console.log('[Network] Connection lost - pausing active downloads')
+      
+      // Pause all active downloads
+      const activeDownloads = downloads.filter(d => d.status === 'downloading')
+      pausedByNetworkRef.current = activeDownloads.map(d => d.id)
+      activeDownloads.forEach(d => {
+        window.api.pauseDownload(d.id)
+      })
+    }
+
+    const handleOnline = (): void => {
+      setIsOnline(true)
+      console.log('[Network] Connection restored - resuming downloads')
+      
+      // Resume downloads that were paused by network loss
+      pausedByNetworkRef.current.forEach(id => {
+        window.api.resumeDownload(id)
+      })
+      pausedByNetworkRef.current = []
+    }
+
+    window.addEventListener('offline', handleOffline)
+    window.addEventListener('online', handleOnline)
+
+    return () => {
+      window.removeEventListener('offline', handleOffline)
+      window.removeEventListener('online', handleOnline)
+    }
+  }, [downloads])
+
   const handleAddDownload = (): void => {
     setAddDownloadModalOpen(true)
   }
@@ -295,6 +350,14 @@ function App(): React.ReactElement {
 
   return (
     <div className="flex flex-col h-screen bg-bg-deep text-text-main font-sans">
+      {/* Offline Warning Banner */}
+      {!isOnline && (
+        <div className="bg-red-500/90 text-white px-4 py-2 text-center text-sm flex items-center justify-center gap-2">
+          <span>⚠️</span>
+          <span>Network connection lost. Downloads are paused and will resume when online.</span>
+        </div>
+      )}
+
       {/* TOP BAR */}
       <div className="toolbar">
         <div className="app-brand">
@@ -479,7 +542,6 @@ function App(): React.ReactElement {
           </button>
 
           <div className="speed-box">↓ {formatBytes(totalSpeed)}/s</div>
-          <div className="speed-box">↑ 0 KB/s</div>
           {activeDownloads.length > 0 && (
             <>
               <div className="footer-stat">
@@ -547,6 +609,9 @@ function App(): React.ReactElement {
           onDismiss={() => setClipboardUrl(null)}
         />
       )}
+
+      {/* Copyright Disclaimer Modal - First Launch */}
+      <DisclaimerModal isOpen={showDisclaimer} onAccept={handleAcceptDisclaimer} />
     </div>
   )
 }

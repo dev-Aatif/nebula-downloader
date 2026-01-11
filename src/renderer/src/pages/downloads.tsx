@@ -5,6 +5,8 @@ import PlaylistModal from '../components/PlaylistModal'
 import AdvancedDownloadOptionsModal from '../components/AdvancedDownloadOptionsModal'
 import { ChevronUpIcon, ChevronDownIcon, DownloadIcon } from '../components/icons'
 import { Skeleton } from '../components/Skeleton'
+import ConfirmDialog from '../components/ConfirmDialog'
+
 
 type DownloadFilter = 'All' | 'Downloading' | 'Paused' | 'Completed' | 'Queued' | 'Error' | 'Cancelled'
 
@@ -48,6 +50,18 @@ export default function Downloads({
   const [selectedFormatId, setSelectedFormatId] = useState<string | undefined>(undefined)
   const [isLoading, setIsLoading] = useState(true)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    onConfirm: () => void
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  })
+
 
   useEffect(() => {
     // Simulate brief initial load for polish
@@ -85,10 +99,17 @@ export default function Downloads({
   }
 
   const handleDelete = (id: string): void => {
-    if (window.confirm('Are you sure you want to delete this download?')) {
-      window.api.deleteDownload(id)
-    }
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete Download',
+      message: 'Are you sure you want to delete this download?',
+      onConfirm: () => {
+        window.api.deleteDownload(id)
+        setConfirmConfig((prev) => ({ ...prev, isOpen: false }))
+      }
+    })
   }
+
 
   const [sortField, setSortField] = useState<keyof Download | 'added'>('createdAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
@@ -124,11 +145,18 @@ export default function Downloads({
 
   const handleBulkDelete = (): void => {
     if (selectedIds.size === 0) return
-    if (window.confirm(`Are you sure you want to delete ${selectedIds.size} download(s)?`)) {
-      selectedIds.forEach((id) => window.api.deleteDownload(id))
-      setSelectedIds(new Set())
-    }
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete Selected Downloads',
+      message: `Are you sure you want to delete ${selectedIds.size} download(s)?`,
+      onConfirm: () => {
+        selectedIds.forEach((id) => window.api.deleteDownload(id))
+        setSelectedIds(new Set())
+        setConfirmConfig((prev) => ({ ...prev, isOpen: false }))
+      }
+    })
   }
+
 
   const sortedDownloads = [...downloads]
     .filter((d) => {
@@ -253,6 +281,7 @@ export default function Downloads({
               onMultiSelect={handleToggleSelect}
               onPause={window.api.pauseDownload}
               onResume={window.api.resumeDownload}
+              onRetry={window.api.retryDownload}
               onDelete={handleDelete}
               onOpenFile={window.api.openFile}
               onShowInFolder={window.api.showInFolder}
@@ -277,6 +306,16 @@ export default function Downloads({
           onSelectFormat={handleFormatSelection}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        onConfirm={confirmConfig.onConfirm}
+        onCancel={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
+        variant="danger"
+      />
     </>
+
   )
 }

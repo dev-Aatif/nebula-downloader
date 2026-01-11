@@ -10,13 +10,108 @@ const activeProcesses = new Map<string, ChildProcess>()
 let activeDownloadCount = 0
 let mainWindowRef: BrowserWindow | null = null
 
+// Auto-retry configuration
+const MAX_RETRIES = 3
+const RETRY_DELAYS = [2000, 4000, 8000] // Exponential backoff in ms
+
+// Parse yt-dlp errors into user-friendly messages
+function parseYtDlpError(stderr: string): { userMessage: string; isRetryable: boolean } {
+  const lowerStderr = stderr.toLowerCase()
+
+  // Video unavailable patterns
+  if (
+    lowerStderr.includes('video unavailable') ||
+    lowerStderr.includes('this video is unavailable')
+  ) {
+    return {
+      userMessage: 'This video is unavailable. It may have been removed or made private.',
+      isRetryable: false
+    }
+  }
+
+  // Private video
+  if (
+    lowerStderr.includes('private video') ||
+    lowerStderr.includes('sign in to confirm your age')
+  ) {
+    return { userMessage: 'This video is private or requires sign-in to view.', isRetryable: false }
+  }
+
+  // Deleted video
+  if (lowerStderr.includes('video has been removed') || lowerStderr.includes('deleted')) {
+    return { userMessage: 'This video has been deleted by the owner.', isRetryable: false }
+  }
+
+  // Region locked
+  if (
+    lowerStderr.includes('not available in your country') ||
+    lowerStderr.includes('geo restricted') ||
+    lowerStderr.includes('blocked in your country')
+  ) {
+    return {
+      userMessage: 'This video is not available in your region due to geographic restrictions.',
+      isRetryable: false
+    }
+  }
+
+  // Age restricted
+  if (lowerStderr.includes('age-restricted') || lowerStderr.includes('age restricted')) {
+    return {
+      userMessage: 'This video is age-restricted and requires authentication.',
+      isRetryable: false
+    }
+  }
+
+  // Live stream not yet started
+  if (lowerStderr.includes('premieres in') || lowerStderr.includes('live event will begin')) {
+    return {
+      userMessage: "This is an upcoming live stream or premiere that hasn't started yet.",
+      isRetryable: false
+    }
+  }
+
+  // Network errors (retryable)
+  if (
+    lowerStderr.includes('unable to download') ||
+    lowerStderr.includes('connection') ||
+    lowerStderr.includes('timed out') ||
+    lowerStderr.includes('network')
+  ) {
+    return { userMessage: 'Network error. Will retry automatically...', isRetryable: true }
+  }
+
+  // Format not available
+  if (
+    lowerStderr.includes('requested format not available') ||
+    lowerStderr.includes('no video formats')
+  ) {
+    return {
+      userMessage:
+        'The requested format is not available for this video. Try a different quality preset.',
+      isRetryable: false
+    }
+  }
+
+  // Default
+  return {
+    userMessage: 'Download failed. Check the error details for more information.',
+    isRetryable: true
+  }
+}
+
 export function initializeWorker(downloads: Download[], window: BrowserWindow): void {
   console.log('Download worker initialized.')
   mainWindowRef = window
+  // Restore downloads that were queued, paused, or actively downloading when app was killed
   downloads
-    .filter((d) => d.status === 'paused' || d.status === 'queued')
+    .filter((d) => d.status === 'paused' || d.status === 'queued' || d.status === 'downloading')
     .forEach((d) => {
       if (!downloadQueue.some((queuedD) => queuedD.id === d.id)) {
+        // Reset downloading status to queued for clean restart
+        if (d.status === 'downloading') {
+          db.updateDownload(d.id, { status: 'queued' })
+          d.status = 'queued'
+        }
         downloadQueue.push(d)
       }
     })
@@ -43,6 +138,44 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
   const settings: Settings = db.getSettings()
 
   const downloadsPath = settings.downloadDirectory
+
+  // Zero Storage Warning: Check disk space before starting
+  try {
+    const diskStats = fs.statfsSync(downloadsPath)
+    const availableBytes = diskStats.bfree * diskStats.bsize
+    const estimatedSize = download.totalSizeInBytes || 500 * 1024 * 1024 // Default 500MB estimate
+    const minRequired = Math.max(estimatedSize * 1.1, 100 * 1024 * 1024) // 10% buffer or 100MB min
+
+    if (availableBytes < minRequired) {
+      const availableMB = Math.floor(availableBytes / (1024 * 1024))
+      const requiredMB = Math.floor(minRequired / (1024 * 1024))
+
+      console.error(
+        `[Download] Insufficient disk space: ${availableMB}MB available, ${requiredMB}MB required`
+      )
+
+      const errorLog: DownloadError = {
+        timestamp: new Date(),
+        message: `Insufficient disk space. Available: ${availableMB}MB, Required: ~${requiredMB}MB`,
+        type: 'storage',
+        details: `Free up disk space on the download drive or change the download directory in Settings.`
+      }
+
+      await db.updateDownload(download.id, {
+        status: 'error',
+        errorLogs: [...(download.errorLogs || []), errorLog]
+      })
+      window.webContents.send('download-error', { id: download.id, error: errorLog })
+      window.webContents.send('download-progress', { id: download.id, status: 'error' })
+
+      activeDownloadCount--
+      processQueue()
+      return
+    }
+  } catch (e) {
+    console.warn('[Download] Could not check disk space:', e)
+    // Continue with download if check fails
+  }
 
   // Let yt-dlp handle filename sanitization for consistency
   const outputTemplate = '%(title)s.%(ext)s'
@@ -74,13 +207,18 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
     outputTemplate,
     '--merge-output-format',
     'mp4',
-    // Print all metadata we need in one JSON line
+    '--no-simulate',
     '--print',
-    '{"force_path": %(filepath)j, "title": %(title)j, "thumbnail": %(thumbnail)j, "filesize": %(filesize,filesize_approx)j}',
+    '{"title": %(title)j, "thumbnail": %(thumbnail)j, "filesize": %(filesize,filesize_approx)j, "filename": %(filename)j, "_filename": %(_filename)j}',
     download.url
   ]
 
   if (settings.proxy) args.push('--proxy', settings.proxy)
+
+  // Speed limit: --limit-rate accepts values like "500K" (KB/s) or "2M" (MB/s)
+  if (settings.speedLimit && settings.speedLimit > 0) {
+    args.push('--limit-rate', `${settings.speedLimit}K`)
+  }
 
   // Set ffmpeg path - use settings or default to bin/window/ffmpeg.exe
   const ffmpegPath =
@@ -92,7 +230,6 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
   args.push('--ffmpeg-location', ffmpegPath)
 
   let fullStderr = ''
-  let fullStdout = ''
 
   try {
     console.log(`[Download] Spawning yt-dlp with path: ${ytDlpPath}`)
@@ -105,14 +242,11 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
     window.webContents.send('download-progress', { id: download.id, status: 'downloading' })
 
     let buffer = ''
-    ytDlp.stdout.on('data', (data: Buffer) => {
+    ytDlp.stdout.on('data', async (data: Buffer) => {
       const chunk = data.toString()
-      fullStdout += chunk
 
       // Log raw output for debugging
-      if (chunk.trim() && !chunk.startsWith('{')) {
-        console.log(`[Download] yt-dlp OUTPUT: ${chunk.trim()}`)
-      }
+      console.log(`[Download] yt-dlp OUTPUT for ${download.id}: ${chunk.trim()}`)
 
       buffer += chunk
 
@@ -120,46 +254,56 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
       // The last element is potentially an incomplete line
       buffer = lines.pop() || ''
 
-      lines.forEach(async (line) => {
-        if (!line.trim()) return
+      for (const line of lines) {
+        if (!line.trim()) continue
 
         try {
           const trimmedLine = line.trim()
+          const jsonStartIndex = trimmedLine.indexOf('{')
+          if (jsonStartIndex === -1) continue
 
-          // Only process JSON lines
-          if (!trimmedLine.startsWith('{')) return
+          const jsonContent = trimmedLine.substring(jsonStartIndex)
+          const output = JSON.parse(jsonContent)
 
-          const output = JSON.parse(trimmedLine)
+          // Handle our custom metadata JSON
+          // We removed force_path because it caused "NA" syntax errors.
+          // Now safely using filename or _filename which are properly JSON escaped by yt-dlp's %()j flag
+          if (output.filename || output._filename) {
+            const rawPath = output.filename || output._filename
+            if (rawPath) {
+              // yt-dlp might return "NA" (string) even with j flag if we are unlucky,
+              // but usually j flag returns null. If it returns "NA" string, we filter it.
+              if (rawPath !== 'NA') {
+                let finalPath = rawPath
+                // If the path is not absolute, resolve it relative to download dir
+                if (!path.isAbsolute(finalPath)) {
+                  finalPath = path.join(downloadsPath, finalPath)
+                }
 
-          // Handle our custom metadata JSON (Look for force_path)
-          if (output.force_path) {
-            console.log(`[Download] 🎯 METADATA CAPTURED: ${output.force_path}`)
-            const updateData: Partial<Download> = {
-              outputPath: output.force_path
+                console.log(`[Download] 🎯 METADATA CAPTURED: ${finalPath}`)
+                const updateData: Partial<Download> = {
+                  outputPath: finalPath
+                }
+                if (output.title && output.title !== 'NA') updateData.title = output.title
+                if (output.thumbnail && output.thumbnail !== 'NA')
+                  updateData.thumbnail = output.thumbnail
+                if (output.filesize) updateData.totalSizeInBytes = output.filesize
+
+                await db.updateDownload(download.id, updateData)
+                window.webContents.send('download-progress', { id: download.id, ...updateData })
+                continue
+              }
             }
-            if (output.title) updateData.title = output.title
-            if (output.thumbnail) updateData.thumbnail = output.thumbnail
-            if (output.filesize) updateData.totalSizeInBytes = output.filesize
-
-            await db.updateDownload(download.id, updateData)
-            window.webContents.send('download-progress', { id: download.id, ...updateData })
-            return
           }
 
           // Distinguish between Info JSON and Progress JSON
-          // Progress JSON (from --progress-template) always has a 'status' field (downloading, finished, etc.)
-          // Info JSON (from --dump-json) usually has 'title', 'id', 'thumbnail' but NO 'status' (or at least not the progress status)
-
           const isProgress =
             'status' in output && ('downloaded_bytes' in output || 'percent' in output)
 
           if (!isProgress) {
-            // Treat as Info JSON
-            // Only process info once or update if needed
-
+            // Treat as Info JSON (from --dump-json or generic output)
             const updateData: Partial<Download> = {}
 
-            // Capture metadata
             if (output.title && download.title !== output.title) {
               updateData.title = output.title
             }
@@ -167,18 +311,13 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
               updateData.thumbnail = output.thumbnail
             }
 
-            // CRITICAL: Capture the actual output filename from yt-dlp
-            // This is the absolute path where yt-dlp will save the file
-            if (output.filename) {
-              updateData.outputPath = output.filename
-              console.log(`[Download] Actual output path captured: ${output.filename}`)
-            } else if (output._filename) {
-              // Fallback to _filename if filename is not available
-              updateData.outputPath = output._filename
-              console.log(`[Download] Actual output path captured: ${output._filename}`)
+            // Capture path from various possible fields
+            const capturedPath = output.filename || output._filename || output.filepath
+            if (capturedPath) {
+              updateData.outputPath = capturedPath
+              console.log(`[Download] Path captured from info JSON: ${capturedPath}`)
             }
 
-            // Try to get size from info
             const totalSizeInBytes = output.filesize || output.filesize_approx
             if (totalSizeInBytes) {
               updateData.totalSizeInBytes = totalSizeInBytes
@@ -192,9 +331,9 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
               })
             }
           } else {
-            // Treat as Progress JSON
+            // Treat as Progress JSON (from --progress-template)
             const updateData: Partial<Download> = {
-              progress: output.percent ? parseFloat(output.percent.replace('%', '')) : 0, // Ensure number
+              progress: output.percent ? parseFloat(output.percent.toString().replace('%', '')) : 0,
               speed: output.speed_str || '0',
               eta: output.eta_str || '0',
               downloadedSizeInBytes: output.downloaded_bytes || 0,
@@ -202,21 +341,18 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
               speedValue: output.speed || 0
             }
 
-            // Capture total size from progress if we missed it or it wasn't in info
             if (output.total_bytes || output.total_bytes_estimate) {
-              const total = output.total_bytes || output.total_bytes_estimate
-              // Only update if we don't have it or it changed significantly?
-              // Just update it to be safe/accurate
-              updateData.totalSizeInBytes = total
+              updateData.totalSizeInBytes = output.total_bytes || output.total_bytes_estimate
             }
 
             await db.updateDownload(download.id, updateData)
             window.webContents.send('download-progress', { id: download.id, ...updateData })
           }
-        } catch {
-          // Partial JSONs should be handled by buffering
+        } catch (err) {
+          // Log JSON parse errors
+          console.error(`[Download] JSON parse error for ${download.id}:`, err)
         }
-      })
+      }
     })
 
     ytDlp.stderr.on('data', async (data) => {
@@ -229,9 +365,12 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
 
       const currentDownload = await db.getDownload(download.id)
       if (currentDownload) {
+        // Parse the error for user-friendly message
+        const { userMessage } = parseYtDlpError(errorString)
+
         const errorLog: DownloadError = {
           timestamp: new Date(),
-          message: `yt-dlp error: ${errorString.substring(0, 200)}...`,
+          message: userMessage,
           type: 'yt-dlp',
           details: errorString
         }
@@ -354,31 +493,95 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
         await db.updateDownload(download.id, finalStats)
         window.webContents.send('download-complete', { id: download.id, outputPath: finalPath })
 
+        // Integrity Verification: Check file exists and size matches expected
+        let verificationStatus = 'unknown'
         if (finalPath && fs.existsSync(finalPath)) {
+          const actualSize = fs.statSync(finalPath).size
+          const expectedSize = currentDownload?.totalSizeInBytes || 0
+
+          if (actualSize > 0) {
+            if (expectedSize > 0) {
+              const sizeDiff = Math.abs(actualSize - expectedSize)
+              const diffPercent = (sizeDiff / expectedSize) * 100
+
+              if (diffPercent < 5) {
+                verificationStatus = 'verified'
+                console.log(
+                  `[Download] ✓ Integrity verified - Size matches (diff: ${diffPercent.toFixed(1)}%)`
+                )
+              } else {
+                verificationStatus = 'size-mismatch'
+                console.warn(
+                  `[Download] ⚠ Size mismatch - Expected: ${expectedSize}, Actual: ${actualSize} (${diffPercent.toFixed(1)}% diff)`
+                )
+              }
+            } else {
+              verificationStatus = 'verified'
+              console.log(
+                `[Download] ✓ File exists (${actualSize} bytes) - no expected size to compare`
+              )
+            }
+          } else {
+            verificationStatus = 'empty-file'
+            console.error(`[Download] ✗ Downloaded file is empty!`)
+          }
+
           console.log(`[Download] ✓ Download completed successfully`)
           console.log(`[Download] Title: "${currentDownload?.title}"`)
           console.log(`[Download] Location: ${finalPath}`)
+          console.log(`[Download] Verification: ${verificationStatus}`)
         } else {
+          verificationStatus = 'file-not-found'
           console.error(`[Download] ✗ Download completed but file verification failed`)
           console.error(`[Download] Expected location: ${downloadsPath}`)
         }
 
         new Notification({
-          title: 'Download Complete!',
-          body: `${currentDownload?.title || currentDownload?.url} has finished.`
+          title: verificationStatus === 'verified' ? 'Download Complete! ✓' : 'Download Finished',
+          body: `${currentDownload?.title || currentDownload?.url} has finished.${verificationStatus === 'size-mismatch' ? ' (size mismatch warning)' : ''}`
         }).show()
       } else {
-        if (currentDownload?.status !== 'error') {
-          if (window.isDestroyed()) return
-          const errorLog: DownloadError = {
-            timestamp: new Date(),
-            message: `yt-dlp exited with code ${code}.`,
-            type: 'yt-dlp',
-            details: fullStderr
+        // Download failed with non-zero exit code
+        const retryCount = currentDownload?.retryCount || 0
+
+        if (retryCount < MAX_RETRIES) {
+          // Auto-retry with exponential backoff
+          const delayMs = RETRY_DELAYS[retryCount] || RETRY_DELAYS[RETRY_DELAYS.length - 1]
+          console.log(
+            `[Download] Retry ${retryCount + 1}/${MAX_RETRIES} for ${download.id} in ${delayMs}ms`
+          )
+
+          await db.updateDownload(download.id, {
+            status: 'queued',
+            retryCount: retryCount + 1
+          })
+
+          window.webContents.send('download-progress', {
+            id: download.id,
+            status: 'queued',
+            retryCount: retryCount + 1
+          })
+
+          // Re-queue after delay
+          setTimeout(() => {
+            const updatedDownload = { ...download, retryCount: retryCount + 1 }
+            downloadQueue.push(updatedDownload)
+            processQueue()
+          }, delayMs)
+        } else {
+          // Max retries exhausted, mark as error
+          if (currentDownload?.status !== 'error') {
+            if (window.isDestroyed()) return
+            const errorLog: DownloadError = {
+              timestamp: new Date(),
+              message: `yt-dlp exited with code ${code} after ${MAX_RETRIES} retries.`,
+              type: 'yt-dlp',
+              details: fullStderr
+            }
+            const updatedErrorLogs = [...(currentDownload?.errorLogs || []), errorLog]
+            await db.updateDownload(download.id, { status: 'error', errorLogs: updatedErrorLogs })
+            window.webContents.send('download-error', { id: download.id, error: errorLog })
           }
-          const updatedErrorLogs = [...(currentDownload?.errorLogs || []), errorLog]
-          await db.updateDownload(download.id, { status: 'error', errorLogs: updatedErrorLogs })
-          window.webContents.send('download-error', { id: download.id, error: errorLog })
         }
       }
       processQueue()
