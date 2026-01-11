@@ -59,7 +59,7 @@ const HistoryRow: React.FC<HistoryRowProps> = ({
       {/* Thumbnail */}
       <div className="w-16 h-9 flex-shrink-0 bg-black/40 rounded overflow-hidden relative border border-white/10">
         {thumbnail ? (
-          <img src={thumbnail} alt="thumb" className="w-full h-full object-cover" />
+          <img src={thumbnail} alt="thumb" className="w-full h-full object-cover" loading="lazy" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-text-dim">
             <FileIcon className="w-4 h-4" />

@@ -1,7 +1,7 @@
 /* eslint-disable react/prop-types */
 import type { Download } from '../../../main/types'
 import ThreeDotMenu from './ThreeDotMenu'
-import { CheckIcon } from './icons'
+import { CheckIcon, PlayIcon, PauseIcon, AlertCircleIcon, ClockIcon } from './icons'
 import { formatBytes } from '../utils'
 
 interface DownloadRowProps {
@@ -17,6 +17,7 @@ interface DownloadRowProps {
   onDelete: (id: string) => void
   onOpenFile: (id: string) => void
   onShowInFolder: (id: string) => void
+  onContextMenu?: (e: React.MouseEvent) => void
 }
 
 const DownloadRow: React.FC<DownloadRowProps> = ({
@@ -31,6 +32,7 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
   onDelete,
   onOpenFile,
   onShowInFolder,
+  onContextMenu,
   index
 }) => {
   const { title, totalSizeInBytes, downloadedSizeInBytes, progress, status, speedValue, createdAt, updatedAt, outputPath } =
@@ -59,6 +61,7 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
     <div
       className={`grid-row download-row ${isSelected ? 'selected' : ''}`}
       onClick={(): void => onSelect(download.id)}
+      onContextMenu={onContextMenu}
     >
       <div
         className="flex justify-center cursor-pointer"
@@ -88,7 +91,7 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
       >
         <div className="truncate">{title}</div>
         <div className="text-[10px] text-text-dim truncate font-normal opacity-70" title={outputPath}>
-          {outputPath || 'Location pending...'}
+          {outputPath || 'Preparing download...'}
         </div>
         {status === 'error' && download.errorLogs && download.errorLogs.length > 0 && (
           <div className="text-[10px] text-neon-red truncate font-medium mt-0.5">
@@ -97,7 +100,12 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
         )}
       </div>
       <div className="justify-center">
-        <span className={`status-pill ${status}`}>
+        <span className={`status-pill ${status} flex items-center gap-1`}>
+          {status === 'downloading' && <PlayIcon className="w-3 h-3" />}
+          {status === 'completed' && <CheckIcon className="w-3 h-3" />}
+          {status === 'paused' && <PauseIcon className="w-3 h-3" />}
+          {status === 'error' && <AlertCircleIcon className="w-3 h-3" />}
+          {status === 'queued' && <ClockIcon className="w-3 h-3" />}
           {status === 'downloading' ? `${Math.floor(progress)}% ${eta ? `· ${eta}` : ''}` : status}
         </span>
       </div>

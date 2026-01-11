@@ -37,8 +37,10 @@ export default function ThreeDotMenu({
   return (
     <div ref={menuRef} className="relative">
       <button
-        className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors text-text-dim hover:text-text-main"
+        className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors text-text-dim hover:text-text-main focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/50"
         onClick={(): void => setIsOpen(!isOpen)}
+        aria-label="Download options"
+        aria-expanded={isOpen}
       >
         <svg
           width="16"

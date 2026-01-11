@@ -57,7 +57,8 @@ const ToolbarButton: React.FC<{
 }> = ({ title, children, className = '', onClick, isActive }) => (
   <button
     title={title}
-    className={`tool-btn ${className} ${isActive ? 'active' : ''}`}
+    aria-label={title}
+    className={`tool-btn focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/50 ${className} ${isActive ? 'active' : ''}`}
     onClick={onClick}
   >
     {children}
@@ -387,6 +388,14 @@ function App(): React.ReactElement {
             value={searchTerm}
             onChange={handleSearchChange}
           />
+          {searchTerm && (
+            <span className="text-xs text-text-dim whitespace-nowrap">
+              {downloads.filter(d => 
+                d.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                d.url.toLowerCase().includes(searchTerm.toLowerCase())
+              ).length} results
+            </span>
+          )}
         </div>
 
         <div className="tool-group">
@@ -570,24 +579,42 @@ function App(): React.ReactElement {
           </div>
         </div>
 
-        {/* Expanded Footer Content */}
+        {/* Expanded Footer Content - List of Active Downloads */}
         {isFooterExpanded && activeDownloads.length > 0 && (
-          <div className="flex px-4 pb-4 gap-6 h-20 animate-in fade-in slide-in-from-bottom-2">
-            {activeDownloads[0].thumbnail && (
-              <img
-                src={activeDownloads[0].thumbnail}
-                alt="Thumbnail"
-                className="h-full rounded shadow-md object-cover aspect-video bg-black"
-              />
-            )}
-            <div className="flex flex-col justify-center">
-              <div className="text-sm font-medium text-text-main line-clamp-1">
-                {activeDownloads[0].title || activeDownloads[0].url}
+          <div className="flex px-4 pb-2 gap-3 h-20 overflow-x-auto overflow-y-hidden animate-in fade-in slide-in-from-bottom-2">
+            {activeDownloads.map((download) => (
+              <div
+                key={download.id}
+                className="flex gap-3 min-w-[280px] max-w-[320px] bg-bg-deep/50 rounded-lg p-2 border border-border-glass hover:border-neon-blue/50 transition-colors cursor-pointer"
+                onClick={() => {
+                  setSelectedDownloadId(download.id)
+                  setActivePage('Downloads')
+                }}
+              >
+                {download.thumbnail && (
+                  <img
+                    src={download.thumbnail}
+                    alt="Thumbnail"
+                    className="h-14 w-24 rounded object-cover bg-black flex-shrink-0"
+                  />
+                )}
+                <div className="flex flex-col justify-center flex-1 min-w-0">
+                  <div className="text-xs font-medium text-text-main line-clamp-1">
+                    {download.title || download.url}
+                  </div>
+                  <div className="mt-1 h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-neon-blue transition-all duration-300"
+                      style={{ width: `${download.progress || 0}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between mt-1 text-[10px] text-text-dim">
+                    <span>{(download.progress || 0).toFixed(1)}%</span>
+                    <span>{download.speed || '—'}</span>
+                  </div>
+                </div>
               </div>
-              <div className="text-xs text-text-dim mt-1">
-                {activeDownloads[0].status} • {activeDownloads[0].formatId || 'Default Format'}
-              </div>
-            </div>
+            ))}
           </div>
         )}
       </div>

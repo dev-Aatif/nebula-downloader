@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import type { Settings } from '@main/types'
 import SettingsRow from '../components/SettingsRow'
+import ToggleSwitch from '../components/ToggleSwitch'
 import { CheckCircleIcon, ChevronDownIcon } from '../components/icons'
 
 const FORMAT_PRESETS = [
@@ -23,20 +24,48 @@ export default function SettingsPage(): React.JSX.Element {
   const [saving, setSaving] = useState(false)
   const [showToast, setShowToast] = useState(false)
   const [formatMode, setFormatMode] = useState('custom')
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false) // Collapsed by default
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
+  const [hasChanges, setHasChanges] = useState(false)
+  const initialLoadRef = useRef(true)
 
   useEffect(() => {
     window.api.getSettings().then((loadedSettings: Settings) => {
       setSettings(loadedSettings)
-      // Determine format mode
       const found = FORMAT_PRESETS.find((p) => p.value === loadedSettings.defaultFormat)
       if (found) {
         setFormatMode(found.value)
       } else {
         setFormatMode('custom')
       }
+      // Mark initial load complete after a tick
+      setTimeout(() => {
+        initialLoadRef.current = false
+      }, 100)
     })
   }, [])
+
+  // Debounced auto-save effect
+  useEffect(() => {
+    // Skip auto-save on initial load
+    if (initialLoadRef.current) return
+
+    setHasChanges(true)
+    const debounceTimer = setTimeout(async () => {
+      setSaving(true)
+      try {
+        await window.api.updateSettings(settings)
+        setShowToast(true)
+        setHasChanges(false)
+        setTimeout(() => setShowToast(false), 2000)
+      } catch (error) {
+        console.error('Failed to auto-save settings:', error)
+      } finally {
+        setSaving(false)
+      }
+    }, 1000) // 1 second debounce
+
+    return () => clearTimeout(debounceTimer)
+  }, [settings])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
     const { name, value } = e.target
@@ -52,20 +81,6 @@ export default function SettingsPage(): React.JSX.Element {
     setFormatMode(mode)
     if (mode !== 'custom') {
       setSettings((prev) => ({ ...prev, defaultFormat: mode }))
-    }
-  }
-
-  const handleSave = async (): Promise<void> => {
-    setSaving(true)
-    try {
-      await window.api.updateSettings(settings)
-      setShowToast(true)
-      setTimeout(() => setShowToast(false), 3000)
-    } catch (error) {
-      console.error('Failed to save settings:', error)
-      alert(`Failed to save settings: ${(error as Error).message}`)
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -145,22 +160,10 @@ export default function SettingsPage(): React.JSX.Element {
                 label="Auto-Download"
                 description="Skip modal and download immediately when URL is detected"
               >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSettings((s) => ({ ...s, autoDownload: !s.autoDownload }))
-                  }
-                  className={`w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
-                    settings.autoDownload ? 'bg-neon-blue' : 'bg-white/20'
-                  }`}
-                >
-                  <div
-                    className={`w-4 h-4 rounded-full bg-white transition-transform ${
-                      settings.autoDownload ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                    style={{ marginTop: '4px' }}
-                  />
-                </button>
+                <ToggleSwitch
+                  checked={settings.autoDownload || false}
+                  onChange={(checked) => setSettings((s) => ({ ...s, autoDownload: checked }))}
+                />
               </SettingsRow>
             </section>
 
@@ -281,26 +284,34 @@ export default function SettingsPage(): React.JSX.Element {
         </div>
       </div>
 
-      {/* Sticky Footer */}
-      <div className="absolute bottom-0 left-0 right-0 bg-[#0d111a]/95 backdrop-blur border-t border-border-glass p-4 flex items-center justify-between z-20">
-        <div className="text-sm text-text-dim px-4">
-          {showToast && (
-            <span className="text-neon-green flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
-              <CheckCircleIcon className="w-4 h-4" /> Settings saved successfully
+      {/* Sticky Footer - Auto-save status */}
+      <div className="absolute bottom-0 left-0 right-0 bg-[#0d111a]/95 backdrop-blur border-t border-border-glass p-4 flex items-center justify-end z-20">
+        <div className="text-sm px-4 flex items-center gap-2">
+          {saving && (
+            <span className="text-neon-blue flex items-center gap-2">
+              <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              Saving...
+            </span>
+          )}
+          {!saving && showToast && (
+            <span className="text-neon-green flex items-center gap-2 animate-in fade-in">
+              <CheckCircleIcon className="w-4 h-4" /> Saved
+            </span>
+          )}
+          {!saving && !showToast && hasChanges && (
+            <span className="text-text-dim flex items-center gap-2">
+              Unsaved changes
+            </span>
+          )}
+          {!saving && !showToast && !hasChanges && (
+            <span className="text-text-dim/50 flex items-center gap-2">
+              All changes saved automatically
             </span>
           )}
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className={`
-            bg-neon-blue/10 hover:bg-neon-blue/20 text-neon-blue border border-neon-blue/50 
-            px-8 py-2.5 rounded-md font-medium transition-all
-            ${saving ? 'opacity-50 cursor-not-allowed' : ''}
-          `}
-        >
-          {saving ? 'Saving...' : 'Save Changes'}
-        </button>
       </div>
     </div>
   )

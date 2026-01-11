@@ -6,7 +6,7 @@ import AdvancedDownloadOptionsModal from '../components/AdvancedDownloadOptionsM
 import { ChevronUpIcon, ChevronDownIcon, DownloadIcon } from '../components/icons'
 import { Skeleton } from '../components/Skeleton'
 import ConfirmDialog from '../components/ConfirmDialog'
-
+import ContextMenu from '../components/ContextMenu'
 
 type DownloadFilter = 'All' | 'Downloading' | 'Paused' | 'Completed' | 'Queued' | 'Error' | 'Cancelled'
 
@@ -61,20 +61,20 @@ export default function Downloads({
     message: '',
     onConfirm: () => {}
   })
+  const [contextMenu, setContextMenu] = useState<{
+    x: number
+    y: number
+    download: Download
+  } | null>(null)
 
 
   useEffect(() => {
-    // Simulate brief initial load for polish
-    const timer = setTimeout(() => setIsLoading(false), 800)
-
     const unlistenLoaded = window.api.onDownloadsLoaded((loadedDownloads) => {
       setDownloads(loadedDownloads)
-      // If we get data immediately, we can stop loading early if we want,
-      // but keeping a minimum visual load time feels smoother.
+      setIsLoading(false)
     })
     return () => {
       unlistenLoaded()
-      clearTimeout(timer)
     }
   }, [setDownloads])
 
@@ -157,6 +157,39 @@ export default function Downloads({
     })
   }
 
+  const handleBulkPause = (): void => {
+    if (selectedIds.size === 0) return
+    selectedIds.forEach((id) => {
+      const download = downloads.find((d) => d.id === id)
+      if (download && (download.status === 'downloading' || download.status === 'queued')) {
+        window.api.pauseDownload(id)
+      }
+    })
+    setSelectedIds(new Set())
+  }
+
+  const handleBulkResume = (): void => {
+    if (selectedIds.size === 0) return
+    selectedIds.forEach((id) => {
+      const download = downloads.find((d) => d.id === id)
+      if (download && download.status === 'paused') {
+        window.api.resumeDownload(id)
+      }
+    })
+    setSelectedIds(new Set())
+  }
+
+  const handleBulkRetry = (): void => {
+    if (selectedIds.size === 0) return
+    selectedIds.forEach((id) => {
+      const download = downloads.find((d) => d.id === id)
+      if (download && download.status === 'error') {
+        window.api.retryDownload(id)
+      }
+    })
+    setSelectedIds(new Set())
+  }
+
 
   const sortedDownloads = [...downloads]
     .filter((d) => {
@@ -197,8 +230,17 @@ export default function Downloads({
       {selectedIds.size > 0 && (
         <div className="mb-2 px-2 flex items-center gap-2">
           <span className="text-sm text-text-dim">{selectedIds.size} selected</span>
-          <button className="btn-secondary text-sm px-3 py-1" onClick={handleBulkDelete}>
-            Delete Selected
+          <button className="btn-secondary text-sm px-3 py-1" onClick={handleBulkPause}>
+            Pause
+          </button>
+          <button className="btn-secondary text-sm px-3 py-1" onClick={handleBulkResume}>
+            Resume
+          </button>
+          <button className="btn-secondary text-sm px-3 py-1" onClick={handleBulkRetry}>
+            Retry
+          </button>
+          <button className="btn-secondary text-sm px-3 py-1 text-red-400 border-red-400/30" onClick={handleBulkDelete}>
+            Delete
           </button>
         </div>
       )}
@@ -285,6 +327,10 @@ export default function Downloads({
               onDelete={handleDelete}
               onOpenFile={window.api.openFile}
               onShowInFolder={window.api.showInFolder}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                setContextMenu({ x: e.clientX, y: e.clientY, download })
+              }}
             />
           ))
         )}
@@ -315,6 +361,22 @@ export default function Downloads({
         onCancel={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
         variant="danger"
       />
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          download={contextMenu.download}
+          onClose={() => setContextMenu(null)}
+          onPause={() => window.api.pauseDownload(contextMenu.download.id)}
+          onResume={() => window.api.resumeDownload(contextMenu.download.id)}
+          onRetry={() => window.api.retryDownload(contextMenu.download.id)}
+          onDelete={() => handleDelete(contextMenu.download.id)}
+          onOpenFile={() => window.api.openFile(contextMenu.download.id)}
+          onShowInFolder={() => window.api.showInFolder(contextMenu.download.id)}
+          onCopyUrl={() => navigator.clipboard.writeText(contextMenu.download.url)}
+        />
+      )}
     </>
 
   )
