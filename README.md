@@ -27,7 +27,7 @@ Nebula Downloader is a high-performance, aesthetically pleasing media downloader
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/your-username/nebula-downloader.git
+   git clone https://github.com/dev-Aatif/nebula-downloader.git
    cd nebula-downloader
    ```
 
@@ -41,21 +41,6 @@ Nebula Downloader is a high-performance, aesthetically pleasing media downloader
    ```bash
    npm run dev
    ```
-
-### Building for Production
-
-To create a production build for your OS:
-
-```bash
-# Windows
-npm run build:win
-
-# macOS
-npm run build:mac
-
-# Linux
-npm run build:linux
-```
 
 ## ⌨️ Keyboard Shortcuts
 
