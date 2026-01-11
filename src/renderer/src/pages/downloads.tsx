@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import type { Download, PlaylistItem } from '../../../main/types'
 import DownloadRow from '../components/DownloadRow'
 import PlaylistModal from '../components/PlaylistModal'
@@ -7,6 +7,7 @@ import { ChevronUpIcon, ChevronDownIcon, DownloadIcon } from '../components/icon
 import { Skeleton } from '../components/Skeleton'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ContextMenu from '../components/ContextMenu'
+import UndoToast from '../components/UndoToast'
 
 type DownloadFilter = 'All' | 'Downloading' | 'Paused' | 'Completed' | 'Queued' | 'Error' | 'Cancelled'
 
@@ -66,6 +67,12 @@ export default function Downloads({
     y: number
     download: Download
   } | null>(null)
+  
+  // Undo delete state
+  const [pendingDelete, setPendingDelete] = useState<{
+    id: string
+    title: string
+  } | null>(null)
 
 
   useEffect(() => {
@@ -99,16 +106,28 @@ export default function Downloads({
   }
 
   const handleDelete = (id: string): void => {
-    setConfirmConfig({
-      isOpen: true,
-      title: 'Delete Download',
-      message: 'Are you sure you want to delete this download?',
-      onConfirm: () => {
-        window.api.deleteDownload(id)
-        setConfirmConfig((prev) => ({ ...prev, isOpen: false }))
-      }
-    })
+    const download = downloads.find(d => d.id === id)
+    if (!download) return
+    
+    // Hide item locally (soft delete)
+    setDownloads(prev => prev.filter(d => d.id !== id))
+    
+    // Show undo toast
+    setPendingDelete({ id, title: download.title || 'Download' })
   }
+  
+  const handleUndoDelete = useCallback(() => {
+    // Restore item by refetching downloads
+    window.api.getDownloads().then(setDownloads)
+    setPendingDelete(null)
+  }, [setDownloads])
+  
+  const handleConfirmDelete = useCallback(() => {
+    if (pendingDelete) {
+      window.api.deleteDownload(pendingDelete.id)
+      setPendingDelete(null)
+    }
+  }, [pendingDelete])
 
 
   const [sortField, setSortField] = useState<keyof Download | 'added'>('createdAt')
@@ -375,6 +394,14 @@ export default function Downloads({
           onOpenFile={() => window.api.openFile(contextMenu.download.id)}
           onShowInFolder={() => window.api.showInFolder(contextMenu.download.id)}
           onCopyUrl={() => navigator.clipboard.writeText(contextMenu.download.url)}
+        />
+      )}
+      
+      {pendingDelete && (
+        <UndoToast
+          message={`"${pendingDelete.title}" deleted`}
+          onUndo={handleUndoDelete}
+          onTimeout={handleConfirmDelete}
         />
       )}
     </>

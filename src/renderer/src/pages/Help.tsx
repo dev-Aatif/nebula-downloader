@@ -127,6 +127,25 @@ export default function Help(): React.JSX.Element {
 
             <details className="bg-card/30 border border-border-glass rounded-lg overflow-hidden">
               <summary className="cursor-pointer p-6 font-semibold text-text-main hover:bg-white/5 transition-colors">
+                How does the download queue work?
+              </summary>
+              <div className="px-6 pb-6 text-text-dim space-y-3">
+                <p>The download queue manages multiple downloads efficiently:</p>
+                <ul className="list-disc list-inside ml-4 space-y-1">
+                  <li><strong>Concurrent Downloads:</strong> By default, up to 3 downloads run simultaneously (configurable in Settings)</li>
+                  <li><strong>Queued Status:</strong> New downloads are queued if the limit is reached</li>
+                  <li><strong>Auto-Start:</strong> Queued downloads start automatically when active downloads complete</li>
+                  <li><strong>Pause All:</strong> Pausing suspends all active downloads; queued items remain waiting</li>
+                  <li><strong>Resume All:</strong> Resumes paused downloads and processes the queue</li>
+                </ul>
+                <p className="text-xs mt-2 text-text-dim italic">
+                  Tip: You can adjust the concurrent download limit in Settings to optimize for your network speed.
+                </p>
+              </div>
+            </details>
+
+            <details className="bg-card/30 border border-border-glass rounded-lg overflow-hidden">
+              <summary className="cursor-pointer p-6 font-semibold text-text-main hover:bg-white/5 transition-colors">
                 How do I update yt-dlp?
               </summary>
               <div className="px-6 pb-6 text-text-dim">

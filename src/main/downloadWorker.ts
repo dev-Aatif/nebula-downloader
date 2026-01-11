@@ -168,6 +168,15 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
       window.webContents.send('download-error', { id: download.id, error: errorLog })
       window.webContents.send('download-progress', { id: download.id, status: 'error' })
 
+      // Notify user about disk space error
+      new Notification({
+        title: 'Download Failed',
+        body: `Insufficient disk space: ${availableMB}MB available, ${requiredMB}MB required`
+      }).show()
+
+      // Show error state on taskbar
+      window.setProgressBar(1, { mode: 'error' })
+
       activeDownloadCount--
       processQueue()
       return
@@ -347,6 +356,11 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
 
             await db.updateDownload(download.id, updateData)
             window.webContents.send('download-progress', { id: download.id, ...updateData })
+
+            // Update Windows taskbar progress indicator
+            if (updateData.progress !== undefined) {
+              window.setProgressBar(updateData.progress / 100)
+            }
           }
         } catch (err) {
           // Log JSON parse errors
@@ -493,6 +507,12 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
         await db.updateDownload(download.id, finalStats)
         window.webContents.send('download-complete', { id: download.id, outputPath: finalPath })
 
+        // Clear Windows taskbar progress when download completes
+        // Note: Will be reset if more downloads are active
+        if (activeDownloadCount <= 1) {
+          window.setProgressBar(-1) // -1 removes progress bar
+        }
+
         // Integrity Verification: Check file exists and size matches expected
         let verificationStatus = 'unknown'
         if (finalPath && fs.existsSync(finalPath)) {
@@ -581,6 +601,15 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
             const updatedErrorLogs = [...(currentDownload?.errorLogs || []), errorLog]
             await db.updateDownload(download.id, { status: 'error', errorLogs: updatedErrorLogs })
             window.webContents.send('download-error', { id: download.id, error: errorLog })
+
+            // Notify user about failure
+            new Notification({
+              title: 'Download Failed',
+              body: `Failed to download "${currentDownload?.title || download.url}" after ${MAX_RETRIES} retries.`
+            }).show()
+
+            // Show error state on taskbar
+            window.setProgressBar(1, { mode: 'error' })
           }
         }
       }
@@ -601,6 +630,15 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
         const updatedErrorLogs = [...(currentDownload.errorLogs || []), errorLog]
         await db.updateDownload(download.id, { status: 'error', errorLogs: updatedErrorLogs })
         window.webContents.send('download-error', { id: download.id, error: errorLog })
+
+        // Notify user about spawn failure
+        new Notification({
+          title: 'Download Error',
+          body: `Failed to start download process: ${(error as Error).message}`
+        }).show()
+
+        // Show error state on taskbar
+        window.setProgressBar(1, { mode: 'error' })
       }
     })()
 
