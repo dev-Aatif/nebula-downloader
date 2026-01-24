@@ -49,7 +49,12 @@ const DownloadDetails: React.FC<DownloadDetailsProps> = ({ download }) => {
           <>
             <div className="details-thumb overflow-hidden bg-black/40">
               {download.thumbnail ? (
-                <img src={download.thumbnail} alt={title} className="w-full h-full object-cover" loading="lazy" />
+                <img
+                  src={download.thumbnail}
+                  alt={title}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
               ) : (
                 <FileIcon className="w-12 h-12 text-neon-blue/40" />
               )}
@@ -64,9 +69,7 @@ const DownloadDetails: React.FC<DownloadDetailsProps> = ({ download }) => {
                 {download.formatId && (
                   <>
                     <span>•</span>
-                    <span className="font-mono bg-white/5 px-1.5 rounded">
-                      {download.formatId}
-                    </span>
+                    <span className="font-mono bg-white/5 px-1.5 rounded">{download.formatId}</span>
                   </>
                 )}
               </div>
@@ -148,11 +151,12 @@ const DownloadDetails: React.FC<DownloadDetailsProps> = ({ download }) => {
               <div className="text-text-dim">
                 [{new Date(createdAt).toLocaleTimeString()}] Download initialized
               </div>
-              
+
               {/* Show current status with updatedAt timestamp */}
               {download.status === 'downloading' && (
                 <div className="text-neon-blue/80">
-                  [{new Date(download.updatedAt || createdAt).toLocaleTimeString()}] Downloading... {download.progress.toFixed(1)}%
+                  [{new Date(download.updatedAt || createdAt).toLocaleTimeString()}] Downloading...{' '}
+                  {download.progress.toFixed(1)}%
                 </div>
               )}
               {download.status === 'paused' && (
@@ -162,20 +166,23 @@ const DownloadDetails: React.FC<DownloadDetailsProps> = ({ download }) => {
               )}
               {download.status === 'completed' && (
                 <div className="text-neon-green/80">
-                  [{new Date(download.updatedAt || createdAt).toLocaleTimeString()}] Download completed successfully
+                  [{new Date(download.updatedAt || createdAt).toLocaleTimeString()}] Download
+                  completed successfully
                 </div>
               )}
               {download.status === 'queued' && (
                 <div className="text-text-dim">
-                  [{new Date(download.updatedAt || createdAt).toLocaleTimeString()}] Waiting in queue...
+                  [{new Date(download.updatedAt || createdAt).toLocaleTimeString()}] Waiting in
+                  queue...
                 </div>
               )}
               {download.status === 'cancelled' && (
                 <div className="text-text-dim">
-                  [{new Date(download.updatedAt || createdAt).toLocaleTimeString()}] Download cancelled
+                  [{new Date(download.updatedAt || createdAt).toLocaleTimeString()}] Download
+                  cancelled
                 </div>
               )}
-              
+
               {/* Error logs with real timestamps */}
               {download.errorLogs?.map((log, i) => (
                 <div key={i} className="text-neon-red/80">

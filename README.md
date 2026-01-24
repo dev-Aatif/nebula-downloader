@@ -1,70 +1,110 @@
 # Nebula Downloader
 
-Nebula Downloader is a high-performance, aesthetically pleasing media downloader built with Electron, React, and TypeScript. It leverages the power of `yt-dlp` to provide a robust downloading experience for various platforms.
+<p align="center">
+  <img src="build/icon.png" alt="Nebula Downloader Logo" width="128">
+</p>
+
+<p align="center">
+  <strong>A sleek, powerful video downloader with a stunning dark-mode UI</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/dev-Aatif/nebula-downloader/releases/latest">
+    <img src="https://img.shields.io/github/v/release/dev-Aatif/nebula-downloader?style=for-the-badge&color=7c3aed" alt="Latest Release">
+  </a>
+  <a href="https://github.com/dev-Aatif/nebula-downloader/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/dev-Aatif/nebula-downloader?style=for-the-badge&color=22c55e" alt="License">
+  </a>
+</p>
+
+---
+
+## 📥 Download
+
+| Platform    | Download                                                                       | Type          |
+| ----------- | ------------------------------------------------------------------------------ | ------------- |
+| **Windows** | [Portable ZIP](https://github.com/dev-Aatif/nebula-downloader/releases/latest) | Extract & Run |
+| **Linux**   | [AppImage](https://github.com/dev-Aatif/nebula-downloader/releases/latest)     | Universal     |
+| **Linux**   | [Snap](https://github.com/dev-Aatif/nebula-downloader/releases/latest)         | Ubuntu/Snap   |
+
+---
 
 ## ✨ Features
 
-- **High-Performance Downloading**: Powered by `yt-dlp` for maximum speed and compatibility.
-- **Modern Aesthetics**: A stunning "Nebula" dark-mode UI with vibrant neon accents and glassmorphism.
-- **Smart Clipboard Detection**: Automatically detects video URLs from your clipboard for a seamless workflow.
-- **Queue Management**: Pause, resume, and retry failed downloads with ease.
-- **Detailed Progress Tracking**: Real-time stats including speed, ETA, and progress percentages.
-- **Automatic Metadata**: Fetches thumbnails and titles automatically for your downloads.
-- **Network Resilience**: Auto-pauses downloads on network loss and resumes when back online.
-- **History Tracking**: Keeps a log of all your completed downloads.
+- **1000+ Supported Sites** — Download from YouTube, Vimeo, Twitter, and many more
+- **Modern Dark UI** — Stunning "Nebula" theme with neon accents and glassmorphism
+- **Smart Clipboard** — Automatically detects video URLs from your clipboard
+- **Queue Management** — Pause, resume, retry, and manage multiple downloads
+- **Real-time Progress** — Speed, ETA, and progress tracking for all downloads
+- **Auto Metadata** — Fetches thumbnails and titles automatically
+- **Network Resilience** — Auto-pauses on network loss, resumes when back online
+- **Download History** — Complete log of all your past downloads
 
-## 🚀 Getting Started
+---
+
+## 🚀 Getting Started (For Developers)
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v16 or higher)
+- [Node.js](https://nodejs.org/) (v18 or higher)
 - [npm](https://www.npmjs.com/)
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) (Managed automatically or can be specified in settings)
-- [FFmpeg](https://ffmpeg.org/) (Required for post-processing and merging streams)
 
-### Installation
+### Development Setup
 
-1. Clone the repository:
+```bash
+# Clone the repository
+git clone https://github.com/dev-Aatif/nebula-downloader.git
+cd nebula-downloader
 
-   ```bash
-   git clone https://github.com/dev-Aatif/nebula-downloader.git
-   cd nebula-downloader
-   ```
+# Install dependencies
+npm install
 
-2. Install dependencies:
+# Run in development mode
+npm run dev
+```
 
-   ```bash
-   npm install
-   ```
+### Building
 
-3. Run the application in development mode:
-   ```bash
-   npm run dev
-   ```
+```bash
+# Build for Linux
+npm run build:linux
+
+# Build for Windows
+npm run build:win
+```
+
+---
 
 ## ⌨️ Keyboard Shortcuts
 
-| Shortcut   | Action                      |
-| ---------- | --------------------------- |
-| `Ctrl + N` | Add New Download            |
-| `Ctrl + ,` | Open Settings               |
-| `Ctrl + H` | View History                |
-| `Esc`      | Close Modal / Cancel Dialog |
-| `Enter`    | Confirm Dialog              |
+| Shortcut   | Action           |
+| ---------- | ---------------- |
+| `Ctrl + N` | Add New Download |
+| `Ctrl + ,` | Open Settings    |
+| `Ctrl + H` | View History     |
+| `Esc`      | Close Modal      |
+| `Enter`    | Confirm Dialog   |
 
-## 🛠️ Technology Stack
+---
+
+## 🛠️ Tech Stack
 
 - **Framework**: [Electron](https://www.electronjs.org/)
 - **Frontend**: [React](https://reactjs.org/) + [TypeScript](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/) + Custom CSS
-- **Database**: [LowDB](https://github.com/typicode/lowdb) for state persistence
-- **Build Tool**: [Vite](https://vitejs.dev/) with [electron-vite](https://electron-vite.org/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **Database**: [LowDB](https://github.com/typicode/lowdb)
+- **Build**: [Vite](https://vitejs.dev/) + [electron-vite](https://electron-vite.org/)
+
+---
 
 ## 📜 License
 
-This project is licensed under the GPL 3 License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GPL-3.0 License — see the [LICENSE](LICENSE) file for details.
+
+---
 
 ## 🙏 Acknowledgements
 
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) for the incredible backend tool.
-- [electron-vite](https://electron-vite.org/) for the excellent boilerplate and build tools.
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) — The powerful download engine
+- [FFmpeg](https://ffmpeg.org/) — For media processing
+- [electron-vite](https://electron-vite.org/) — Excellent build tooling

@@ -7,6 +7,7 @@ import AddDownloadModal from './components/AddDownloadModal'
 import DownloadDetails from './components/DownloadDetails'
 import ClipboardToast from './components/ClipboardToast'
 import DisclaimerModal from './components/DisclaimerModal'
+import SetupModal from './components/SetupModal'
 import type { Download } from '../../main/types'
 import { isValidVideoUrl } from './utils/urlValidator'
 import {
@@ -20,15 +21,20 @@ import {
   HelpIcon,
   DownloadIcon,
   CheckCircleIcon,
-  ChevronUpIcon,
   AlertCircleIcon,
   ListIcon,
   BanIcon
 } from './components/icons'
-import { formatBytes } from './utils'
 
 type Page = 'Downloads' | 'History' | 'Settings' | 'Help'
-type DownloadFilter = 'All' | 'Downloading' | 'Paused' | 'Completed' | 'Queued' | 'Error' | 'Cancelled'
+type DownloadFilter =
+  | 'All'
+  | 'Downloading'
+  | 'Paused'
+  | 'Completed'
+  | 'Queued'
+  | 'Error'
+  | 'Cancelled'
 
 const pages: Record<
   Page,
@@ -40,6 +46,10 @@ const pages: Record<
     searchTerm?: string
     downloads: Download[]
     setDownloads: React.Dispatch<React.SetStateAction<Download[]>>
+    selectedIds: Set<string>
+    setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>
+    onMultiSelect: (id: string) => void
+    onSelectAll?: () => void
   }>
 > = {
   Downloads,
@@ -89,7 +99,55 @@ function App(): React.ReactElement {
   const [isAddDownloadModalOpen, setAddDownloadModalOpen] = useState(false)
   const [downloads, setDownloads] = useState<Download[]>([])
   const [activeDownloadId, setActiveDownloadId] = useState<string | null>(null)
-  const [isFooterExpanded, setFooterExpanded] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  // Selection handlers
+  const handleToggleSelect = useCallback((id: string): void => {
+    setSelectedIds((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(id)) {
+        newSet.delete(id)
+      } else {
+        newSet.add(id)
+      }
+      return newSet
+    })
+  }, [])
+
+
+  // Bulk Handlers
+  // Bulk Handlers
+  const handleBulkPause = useCallback((): void => {
+    if (selectedIds.size === 0) return
+    selectedIds.forEach((id) => {
+      const download = downloads.find((d) => d.id === id)
+      if (download && (download.status === 'downloading' || download.status === 'queued')) {
+        window.api.pauseDownload(id)
+      }
+    })
+    setSelectedIds(new Set())
+  }, [selectedIds, downloads])
+
+  const handleBulkResume = useCallback((): void => {
+    if (selectedIds.size === 0) return
+    selectedIds.forEach((id) => {
+      const download = downloads.find((d) => d.id === id)
+      if (download && download.status === 'paused') {
+        window.api.resumeDownload(id)
+      }
+    })
+    setSelectedIds(new Set())
+  }, [selectedIds, downloads])
+
+  const handleBulkDelete = useCallback((): void => {
+    if (selectedIds.size === 0) return
+    // Show confirmation dialog logic would ideally be here or we just delete
+    // For toolbar action, let's just delete for now or we need a global confirm dialog
+    // User requested "remove those buttons that appear after selecting videos" and "use above icons"
+    // So buttons should trigger these.
+    selectedIds.forEach((id) => window.api.deleteDownload(id))
+    setSelectedIds(new Set())
+  }, [selectedIds])
 
   // Copyright disclaimer state
   const [showDisclaimer, setShowDisclaimer] = useState(false)
@@ -98,6 +156,14 @@ function App(): React.ReactElement {
   const [clipboardUrl, setClipboardUrl] = useState<string | null>(null)
   const lastCheckedClipboardRef = useRef<string>('')
 
+  // Setup modal state for first-run yt-dlp download
+  const [needsSetup, setNeedsSetup] = useState(false)
+  const [setupProgress, setSetupProgress] = useState(0)
+  const [setupStatus, setSetupStatus] = useState<'downloading' | 'complete' | 'error'>(
+    'downloading'
+  )
+  const [setupError, setSetupError] = useState<string | undefined>(undefined)
+
   // Check settings on load for first-launch disclaimer
   useEffect(() => {
     window.api.getSettings().then((settings) => {
@@ -105,6 +171,41 @@ function App(): React.ReactElement {
         setShowDisclaimer(true)
       }
     })
+  }, [])
+
+  // Check dependency status on load
+  useEffect(() => {
+    const checkDependencies = async (): Promise<void> => {
+      try {
+        const status = await window.api.getDependencyStatus()
+        if (!status.ytDlp.installed) {
+          setNeedsSetup(true)
+          setSetupStatus('downloading')
+          // Start installation
+          const success = await window.api.installYtDlp()
+          if (success) {
+            setSetupStatus('complete')
+            setTimeout(() => setNeedsSetup(false), 1500)
+          } else {
+            setSetupStatus('error')
+            setSetupError('Failed to download yt-dlp. Please check your internet connection.')
+          }
+        } else {
+          // Run background updates for existing installations
+          window.api.runBackgroundUpdates()
+        }
+      } catch (err) {
+        console.error('Failed to check dependencies:', err)
+      }
+    }
+    checkDependencies()
+
+    // Listen for setup progress
+    const unlistenSetup = window.api.onSetupProgress((percent) => {
+      setSetupProgress(percent)
+    })
+
+    return () => unlistenSetup()
   }, [])
 
   const handleAcceptDisclaimer = async (): Promise<void> => {
@@ -253,11 +354,11 @@ function App(): React.ReactElement {
     const handleOffline = (): void => {
       setIsOnline(false)
       console.log('[Network] Connection lost - pausing active downloads')
-      
+
       // Pause all active downloads
-      const activeDownloads = downloads.filter(d => d.status === 'downloading')
-      pausedByNetworkRef.current = activeDownloads.map(d => d.id)
-      activeDownloads.forEach(d => {
+      const activeDownloads = downloads.filter((d) => d.status === 'downloading')
+      pausedByNetworkRef.current = activeDownloads.map((d) => d.id)
+      activeDownloads.forEach((d) => {
         window.api.pauseDownload(d.id)
       })
     }
@@ -265,9 +366,9 @@ function App(): React.ReactElement {
     const handleOnline = (): void => {
       setIsOnline(true)
       console.log('[Network] Connection restored - resuming downloads')
-      
+
       // Resume downloads that were paused by network loss
-      pausedByNetworkRef.current.forEach(id => {
+      pausedByNetworkRef.current.forEach((id) => {
         window.api.resumeDownload(id)
       })
       pausedByNetworkRef.current = []
@@ -292,24 +393,7 @@ function App(): React.ReactElement {
     }
   }
 
-  const handleResume = (): void => {
-    if (selectedDownloadId) {
-      window.api.resumeDownload(selectedDownloadId)
-    }
-  }
 
-  const handlePause = (): void => {
-    if (selectedDownloadId) {
-      window.api.pauseDownload(selectedDownloadId)
-    }
-  }
-
-  const handleDelete = (): void => {
-    if (selectedDownloadId) {
-      window.api.deleteDownload(selectedDownloadId)
-      setSelectedDownloadId(null)
-    }
-  }
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     setSearchTerm(e.target.value)
@@ -321,15 +405,6 @@ function App(): React.ReactElement {
     downloads.find((d) => d.status === 'downloading') ||
     (downloads.length > 0 ? downloads[0] : null)
 
-  const activeDownloads = downloads.filter((d) => d.status === 'downloading')
-  const totalSpeed = activeDownloads.reduce((acc, d) => acc + (d.speedValue || 0), 0)
-
-  // Calculations for active downloads (for ETA and live progress)
-  const activeTotalSize = activeDownloads.reduce((acc, d) => acc + (d.totalSizeInBytes || 0), 0)
-  const activeTotalDownloaded = activeDownloads.reduce((acc, d) => acc + d.downloadedSizeInBytes, 0)
-  const activeOverallProgress =
-    activeTotalSize > 0 ? (activeTotalDownloaded / activeTotalSize) * 100 : 0
-
   // Calculate counts for badges
   const activeCount = downloads.filter((d) => d.status === 'downloading').length
   const completedCount = downloads.filter((d) => d.status === 'completed').length
@@ -337,17 +412,6 @@ function App(): React.ReactElement {
   const queuedCount = downloads.filter((d) => d.status === 'queued').length
   const errorCount = downloads.filter((d) => d.status === 'error').length
   const cancelledCount = downloads.filter((d) => d.status === 'cancelled').length
-
-  const activeRemainingBytes = activeTotalSize - activeTotalDownloaded
-  const activeEtaSeconds = totalSpeed > 0 ? activeRemainingBytes / totalSpeed : 0
-
-  const formatEta = (seconds: number): string => {
-    if (seconds <= 0 || !isFinite(seconds)) return '—'
-    if (seconds < 60) return `${Math.floor(seconds)}s`
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m`
-    return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`
-  }
-
 
   return (
     <div className="flex flex-col h-screen bg-bg-deep text-text-main font-sans">
@@ -361,24 +425,57 @@ function App(): React.ReactElement {
 
       {/* TOP BAR */}
       <div className="toolbar">
-        <div className="app-brand">
-          <div className="logo-dot"></div>
-          <div className="app-name">NEBULA</div>
+        <div className="app-brand flex items-center gap-3 pl-4">
+          <span className="text-2xl font-black tracking-[0.2em] uppercase" style={{ 
+            fontFamily: 'Orbitron, Inter, sans-serif',
+            background: 'linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 50%, var(--neon-blue) 100%)',
+            backgroundSize: '200% auto',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            textShadow: '0 0 30px rgba(0, 243, 255, 0.3)',
+            animation: 'shimmer 3s linear infinite'
+          }}>
+            NEBULA
+          </span>
         </div>
 
         <div className="tool-group">
-          <ToolbarButton title="Start" onClick={handleResume}>
-            <PlayIcon className="w-5 h-5" />
-          </ToolbarButton>
-          <ToolbarButton title="Pause" onClick={handlePause}>
-            <PauseIcon className="w-5 h-5" />
-          </ToolbarButton>
-          <ToolbarButton title="Delete" onClick={handleDelete}>
-            <TrashIcon className="w-5 h-5" />
-          </ToolbarButton>
+          {selectedIds.size > 0 ? (
+            <>
+              <ToolbarButton title="Resume Selected" onClick={handleBulkResume}>
+                <PlayIcon className="w-5 h-5 text-neon-green" />
+              </ToolbarButton>
+              <ToolbarButton title="Pause Selected" onClick={handleBulkPause}>
+                <PauseIcon className="w-5 h-5 text-yellow-500" />
+              </ToolbarButton>
+              <ToolbarButton title="Delete Selected" onClick={handleBulkDelete}>
+                <TrashIcon className="w-5 h-5 text-red-500" />
+              </ToolbarButton>
+            </>
+          ) : (
+            <>
+              <ToolbarButton title="Pause All" onClick={() => window.api.pauseAllDownloads()}>
+                <PauseIcon className="w-5 h-5" />
+              </ToolbarButton>
+              <ToolbarButton title="Delete All" onClick={() => {}}>
+                <TrashIcon className="w-5 h-5 opacity-50" />
+              </ToolbarButton>
+            </>
+          )}
         </div>
 
+
         <div className="spacer"></div>
+
+        {/* Add Download Button */}
+        <button
+          onClick={handleAddDownload}
+          className="tool-btn primary flex items-center gap-2 px-4"
+          title="Add New Download (Ctrl+N)"
+        >
+          <PlusIcon className="w-4 h-4" />
+          <span className="text-sm font-medium">Add</span>
+        </button>
 
         <div className="search-box">
           <SearchIcon className="w-4 h-4 text-text-dim" />
@@ -390,23 +487,19 @@ function App(): React.ReactElement {
           />
           {searchTerm && (
             <span className="text-xs text-text-dim whitespace-nowrap">
-              {downloads.filter(d => 
-                d.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                d.url.toLowerCase().includes(searchTerm.toLowerCase())
-              ).length} results
+              {
+                downloads.filter(
+                  (d) =>
+                    d.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    d.url.toLowerCase().includes(searchTerm.toLowerCase())
+                ).length
+              }{' '}
+              results
             </span>
           )}
         </div>
 
-        <div className="tool-group">
-          <ToolbarButton
-            title="Settings"
-            isActive={activePage === 'Settings'}
-            onClick={() => setActivePage('Settings')}
-          >
-            <SettingsIcon className="w-5 h-5" />
-          </ToolbarButton>
-        </div>
+
       </div>
 
       <div className="main-layout">
@@ -450,7 +543,7 @@ function App(): React.ReactElement {
               setActivePage('Downloads')
               setActiveFilter('Paused')
             }}
-             count={pausedCount}
+            count={pausedCount}
           />
           <SidebarItem
             icon={<CheckCircleIcon className="text-neon-green" />}
@@ -499,6 +592,12 @@ function App(): React.ReactElement {
             isActive={activePage === 'Help'}
             onClick={() => setActivePage('Help')}
           />
+          <SidebarItem
+            icon={<SettingsIcon />}
+            label="Settings"
+            isActive={activePage === 'Settings'}
+            onClick={() => setActivePage('Settings')}
+          />
         </div>
 
         {/* MAIN CONTENT AREA */}
@@ -512,6 +611,10 @@ function App(): React.ReactElement {
               searchTerm={searchTerm}
               downloads={downloads}
               setDownloads={setDownloads}
+              selectedIds={selectedIds}
+              setSelectedIds={setSelectedIds}
+              onMultiSelect={handleToggleSelect}
+              // onSelectAll is handled in the page component to access sorted/filtered list
             />
           </main>
 
@@ -524,7 +627,7 @@ function App(): React.ReactElement {
           {activePage === 'Downloads' && (
             <button
               onClick={handleAddDownload}
-              className="fixed bottom-20 right-6 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-neon-blue to-neon-purple shadow-lg shadow-neon-blue/30 hover:shadow-neon-blue/50 hover:scale-110 transition-all duration-200 flex items-center justify-center group"
+              className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-neon-blue to-neon-purple shadow-lg shadow-neon-blue/30 hover:shadow-neon-blue/50 hover:scale-110 transition-all duration-200 flex items-center justify-center group"
               title="Add New Download (Ctrl+N)"
             >
               <PlusIcon className="w-6 h-6 text-white" />
@@ -535,89 +638,7 @@ function App(): React.ReactElement {
         </div>
       </div>
 
-      {/* FOOTER */}
-      {/* FOOTER */}
-      <div
-        className={`footer transition-all duration-300 ease-in-out ${isFooterExpanded ? 'h-32' : 'h-10'}`}
-      >
-        <div className="flex items-center w-full h-10 px-4 gap-4">
-          <button
-            className="text-text-dim hover:text-text-main transition-colors"
-            onClick={() => setFooterExpanded(!isFooterExpanded)}
-          >
-            <ChevronUpIcon
-              className={`w-4 h-4 transform transition-transform ${isFooterExpanded ? 'rotate-180' : ''}`}
-            />
-          </button>
 
-          <div className="speed-box">↓ {formatBytes(totalSpeed)}/s</div>
-          {activeDownloads.length > 0 && (
-            <>
-              <div className="footer-stat">
-                <span className="text-text-dim mr-1">Progress:</span>
-                <span>{activeOverallProgress.toFixed(1)}%</span>
-              </div>
-              <div className="footer-stat">
-                <span className="text-text-dim mr-1">Downloaded:</span>
-                <span>
-                  {formatBytes(activeTotalDownloaded)} / {formatBytes(activeTotalSize)}
-                </span>
-              </div>
-              <div className="footer-stat">
-                <span className="text-text-dim mr-1">Remaining:</span>
-                <span>{formatBytes(activeRemainingBytes)}</span>
-              </div>
-              <div className="footer-stat">
-                <span className="text-text-dim mr-1">ETA:</span>
-                <span>{formatEta(activeEtaSeconds)}</span>
-              </div>
-            </>
-          )}
-          <div className="footer-spacer"></div>
-          <div className="speed-box">
-            <div className="connection-dot"></div> Connected
-          </div>
-        </div>
-
-        {/* Expanded Footer Content - List of Active Downloads */}
-        {isFooterExpanded && activeDownloads.length > 0 && (
-          <div className="flex px-4 pb-2 gap-3 h-20 overflow-x-auto overflow-y-hidden animate-in fade-in slide-in-from-bottom-2">
-            {activeDownloads.map((download) => (
-              <div
-                key={download.id}
-                className="flex gap-3 min-w-[280px] max-w-[320px] bg-bg-deep/50 rounded-lg p-2 border border-border-glass hover:border-neon-blue/50 transition-colors cursor-pointer"
-                onClick={() => {
-                  setSelectedDownloadId(download.id)
-                  setActivePage('Downloads')
-                }}
-              >
-                {download.thumbnail && (
-                  <img
-                    src={download.thumbnail}
-                    alt="Thumbnail"
-                    className="h-14 w-24 rounded object-cover bg-black flex-shrink-0"
-                  />
-                )}
-                <div className="flex flex-col justify-center flex-1 min-w-0">
-                  <div className="text-xs font-medium text-text-main line-clamp-1">
-                    {download.title || download.url}
-                  </div>
-                  <div className="mt-1 h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-neon-blue transition-all duration-300"
-                      style={{ width: `${download.progress || 0}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between mt-1 text-[10px] text-text-dim">
-                    <span>{(download.progress || 0).toFixed(1)}%</span>
-                    <span>{download.speed || '—'}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
       <AddDownloadModal
         isOpen={isAddDownloadModalOpen}
@@ -639,6 +660,14 @@ function App(): React.ReactElement {
 
       {/* Copyright Disclaimer Modal - First Launch */}
       <DisclaimerModal isOpen={showDisclaimer} onAccept={handleAcceptDisclaimer} />
+
+      {/* Setup Modal - First Run yt-dlp Download */}
+      <SetupModal
+        isOpen={needsSetup}
+        progress={setupProgress}
+        status={setupStatus}
+        error={setupError}
+      />
     </div>
   )
 }

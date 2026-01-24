@@ -12,6 +12,19 @@ const FORMAT_PRESETS = [
   { label: 'Custom', value: 'custom' }
 ]
 
+type DependencyInfo = {
+  installed: boolean
+  version: string | null
+  path: string
+  updateAvailable?: boolean
+  latestVersion?: string
+}
+
+type DependencyStatus = {
+  ytDlp: DependencyInfo
+  ffmpeg: DependencyInfo
+}
+
 export default function SettingsPage(): React.JSX.Element {
   const [settings, setSettings] = useState<Settings>({
     downloadDirectory: '',
@@ -27,6 +40,89 @@ export default function SettingsPage(): React.JSX.Element {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
   const initialLoadRef = useRef(true)
+
+  // Dependency status state
+  const [depStatus, setDepStatus] = useState<DependencyStatus | null>(null)
+  const [isCheckingYtDlp, setIsCheckingYtDlp] = useState(false)
+  const [isCheckingFfmpeg, setIsCheckingFfmpeg] = useState(false)
+  const [isUpdatingYtDlp, setIsUpdatingYtDlp] = useState(false)
+  const [ytDlpUpdateProgress, setYtDlpUpdateProgress] = useState(0)
+
+  // Load dependency status on mount
+  useEffect(() => {
+    window.api.getFullDependencyStatus().then(setDepStatus)
+
+    // Listen for update progress
+    const unlistenProgress = window.api.onYtDlpUpdateProgress((percent) => {
+      setYtDlpUpdateProgress(percent)
+      if (percent >= 100) {
+        setTimeout(() => {
+          setIsUpdatingYtDlp(false)
+          window.api.getFullDependencyStatus().then(setDepStatus)
+        }, 500)
+      }
+    })
+
+    return () => unlistenProgress()
+  }, [])
+
+  // Handlers for dependency updates
+  const handleCheckYtDlpUpdate = async (): Promise<void> => {
+    setIsCheckingYtDlp(true)
+    try {
+      const result = await window.api.checkYtDlpUpdate()
+      setDepStatus((prev) =>
+        prev
+          ? {
+              ...prev,
+              ytDlp: {
+                ...prev.ytDlp,
+                updateAvailable: result.updateAvailable,
+                latestVersion: result.latestVersion
+              }
+            }
+          : null
+      )
+    } catch (err) {
+      console.error('Failed to check yt-dlp update:', err)
+    } finally {
+      setIsCheckingYtDlp(false)
+    }
+  }
+
+  const handleCheckFfmpegUpdate = async (): Promise<void> => {
+    setIsCheckingFfmpeg(true)
+    try {
+      const result = await window.api.checkFfmpegUpdate()
+      setDepStatus((prev) =>
+        prev
+          ? {
+              ...prev,
+              ffmpeg: {
+                ...prev.ffmpeg,
+                updateAvailable: result.updateAvailable,
+                latestVersion: result.latestVersion
+              }
+            }
+          : null
+      )
+    } catch (err) {
+      console.error('Failed to check ffmpeg update:', err)
+    } finally {
+      setIsCheckingFfmpeg(false)
+    }
+  }
+
+  const handleUpdateYtDlp = async (): Promise<void> => {
+    setIsUpdatingYtDlp(true)
+    setYtDlpUpdateProgress(0)
+    try {
+      await window.api.updateYtDlp()
+    } catch (err) {
+      console.error('Failed to update yt-dlp:', err)
+      setIsUpdatingYtDlp(false)
+    }
+  }
 
   useEffect(() => {
     window.api.getSettings().then((loadedSettings: Settings) => {
@@ -104,10 +200,6 @@ export default function SettingsPage(): React.JSX.Element {
     }
   }
 
-  const handleThemeChange = (theme: 'light' | 'dark' | 'system'): void => {
-    window.api.setTheme(theme)
-  }
-
   const renderInput = (
     name: keyof Settings,
     type = 'text',
@@ -140,22 +232,11 @@ export default function SettingsPage(): React.JSX.Element {
 
           {/* Groups */}
           <div className="space-y-6">
-            {/* Appearance */}
+            {/* Behavior */}
             <section className="bg-card/30 border border-border-glass rounded-lg p-6">
               <h3 className="text-lg font-semibold mb-4 text-neon-blue flex items-center gap-2">
-                Appearance
+                Behavior
               </h3>
-              <SettingsRow label="Theme" description="Change the application theme">
-                <select
-                  onChange={(e) => handleThemeChange(e.target.value as 'light' | 'dark' | 'system')}
-                  className="bg-[#0d111a] border border-white/10 rounded-md p-2 text-sm text-text-main focus:border-neon-blue focus:outline-none min-w-[150px]"
-                  defaultValue="system"
-                >
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                  <option value="system">System</option>
-                </select>
-              </SettingsRow>
               <SettingsRow
                 label="Auto-Download"
                 description="Skip modal and download immediately when URL is detected"
@@ -187,7 +268,10 @@ export default function SettingsPage(): React.JSX.Element {
                 <div className="w-24">{renderInput('concurrency', 'number')}</div>
               </SettingsRow>
 
-              <SettingsRow label="Speed Limit" description="Limit download bandwidth (0 = unlimited)">
+              <SettingsRow
+                label="Speed Limit"
+                description="Limit download bandwidth (0 = unlimited)"
+              >
                 <div className="flex items-center gap-2">
                   <div className="w-24">
                     <input
@@ -250,9 +334,12 @@ export default function SettingsPage(): React.JSX.Element {
                 }`}
               >
                 <div className="p-6 pt-0 space-y-4">
-                  <SettingsRow label="yt-dlp Path" description="Path to yt-dlp executable (optional).">
+                  <SettingsRow
+                    label="yt-dlp Path"
+                    description="Manual override for yt-dlp executable (advanced only)."
+                  >
                     <div className="flex gap-2 w-full">
-                      {renderInput('ytDlpPath', 'text', true, 'Auto-detected')}
+                      {renderInput('ytDlpPath', 'text', true, 'Default (Auto-managed)')}
                       <button
                         onClick={() => handleBrowseFile('ytDlpPath')}
                         className="tool-btn primary px-4"
@@ -262,9 +349,12 @@ export default function SettingsPage(): React.JSX.Element {
                     </div>
                   </SettingsRow>
 
-                  <SettingsRow label="FFmpeg Path" description="Path to FFmpeg executable (optional).">
+                  <SettingsRow
+                    label="FFmpeg Path"
+                    description="Manual override for FFmpeg executable (advanced only)."
+                  >
                     <div className="flex gap-2 w-full">
-                      {renderInput('ffmpegPath', 'text', true, 'Auto-detected')}
+                      {renderInput('ffmpegPath', 'text', true, 'Default (Bundled)')}
                       <button
                         onClick={() => handleBrowseFile('ffmpegPath')}
                         className="tool-btn primary px-4"
@@ -280,6 +370,93 @@ export default function SettingsPage(): React.JSX.Element {
                 </div>
               </div>
             </section>
+
+            {/* Dependencies */}
+            <section className="bg-card/30 border border-border-glass rounded-lg p-6">
+              <h3 className="text-lg font-semibold mb-4 text-neon-blue flex items-center gap-2">
+                Dependencies
+                <span className="text-xs font-normal text-text-dim bg-white/10 px-2 py-0.5 rounded">
+                  Required for downloading
+                </span>
+              </h3>
+
+              {/* yt-dlp */}
+              <SettingsRow label="yt-dlp" description="Core download engine (auto-updated)">
+                <div className="flex items-center gap-3">
+                  {depStatus?.ytDlp.installed ? (
+                    <>
+                      <span className="text-sm text-neon-green flex items-center gap-1">
+                        <CheckCircleIcon className="w-4 h-4" />v{depStatus.ytDlp.version}
+                      </span>
+                      {depStatus.ytDlp.updateAvailable && (
+                        <span className="text-xs text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded">
+                          v{depStatus.ytDlp.latestVersion} available
+                        </span>
+                      )}
+                      {isUpdatingYtDlp ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-neon-blue transition-all"
+                              style={{ width: `${ytDlpUpdateProgress}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-text-dim">{ytDlpUpdateProgress}%</span>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            onClick={handleCheckYtDlpUpdate}
+                            disabled={isCheckingYtDlp}
+                            className="tool-btn text-xs px-3 py-1"
+                          >
+                            {isCheckingYtDlp ? 'Checking...' : 'Check for Updates'}
+                          </button>
+                          {depStatus.ytDlp.updateAvailable && (
+                            <button
+                              onClick={handleUpdateYtDlp}
+                              className="tool-btn primary text-xs px-3 py-1"
+                            >
+                              Update Now
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-sm text-red-400">Not installed</span>
+                  )}
+                </div>
+              </SettingsRow>
+
+              {/* ffmpeg */}
+              <SettingsRow label="FFmpeg" description="Media processing (bundled with app)">
+                <div className="flex items-center gap-3">
+                  {depStatus?.ffmpeg.installed ? (
+                    <>
+                      <span className="text-sm text-neon-green flex items-center gap-1">
+                        <CheckCircleIcon className="w-4 h-4" />v
+                        {depStatus.ffmpeg.version?.split('-')[0] || 'unknown'}
+                      </span>
+                      {depStatus.ffmpeg.updateAvailable && (
+                        <span className="text-xs text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded">
+                          Update available
+                        </span>
+                      )}
+                      <button
+                        onClick={handleCheckFfmpegUpdate}
+                        disabled={isCheckingFfmpeg}
+                        className="tool-btn text-xs px-3 py-1"
+                      >
+                        {isCheckingFfmpeg ? 'Checking...' : 'Check for Updates'}
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-sm text-red-400">Not found</span>
+                  )}
+                </div>
+              </SettingsRow>
+            </section>
           </div>
         </div>
       </div>
@@ -290,8 +467,19 @@ export default function SettingsPage(): React.JSX.Element {
           {saving && (
             <span className="text-neon-blue flex items-center gap-2">
               <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
               </svg>
               Saving...
             </span>
@@ -302,9 +490,7 @@ export default function SettingsPage(): React.JSX.Element {
             </span>
           )}
           {!saving && !showToast && hasChanges && (
-            <span className="text-text-dim flex items-center gap-2">
-              Unsaved changes
-            </span>
+            <span className="text-text-dim flex items-center gap-2">Unsaved changes</span>
           )}
           {!saving && !showToast && !hasChanges && (
             <span className="text-text-dim/50 flex items-center gap-2">
@@ -316,4 +502,3 @@ export default function SettingsPage(): React.JSX.Element {
     </div>
   )
 }
-

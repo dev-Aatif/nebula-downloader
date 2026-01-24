@@ -4,6 +4,7 @@ import path from 'path'
 import fs from 'fs'
 import { db } from './db'
 import { Download, Settings, DownloadError } from './types'
+import { getYtDlpPath, getFfmpegPath } from './dependencyManager'
 
 const downloadQueue: Download[] = []
 const activeProcesses = new Map<string, ChildProcess>()
@@ -195,11 +196,7 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
 
   const formatSelection = download.formatId ? download.formatId : settings.defaultFormat
 
-  const ytDlpPath =
-    settings.ytDlpPath ||
-    (process.env.NODE_ENV === 'development'
-      ? path.join(process.cwd(), 'bin', 'window', 'yt-dlp.exe')
-      : path.join(process.resourcesPath, 'bin', 'window', 'yt-dlp.exe'))
+  const ytDlpPath = settings.ytDlpPath || getYtDlpPath()
 
   const args = [
     // '--dump-json', // REMOVED: This forces simulation mode!
@@ -229,12 +226,8 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
     args.push('--limit-rate', `${settings.speedLimit}K`)
   }
 
-  // Set ffmpeg path - use settings or default to bin/window/ffmpeg.exe
-  const ffmpegPath =
-    settings.ffmpegPath ||
-    (process.env.NODE_ENV === 'development'
-      ? path.join(process.cwd(), 'bin', 'window', 'ffmpeg.exe')
-      : path.join(process.resourcesPath, 'bin', 'window', 'ffmpeg.exe'))
+  // Set ffmpeg path - use settings or bundled ffmpeg
+  const ffmpegPath = settings.ffmpegPath || getFfmpegPath()
 
   args.push('--ffmpeg-location', ffmpegPath)
 
@@ -243,9 +236,11 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
   try {
     console.log(`[Download] Spawning yt-dlp with path: ${ytDlpPath}`)
     console.log(`[Download] FFmpeg location: ${ffmpegPath}`)
+    console.log(`[Download] Working directory: ${downloadsPath}`)
     console.log(`[Download] Args:`, JSON.stringify(args, null, 2))
 
-    const ytDlp = spawn(ytDlpPath, args)
+    // Set cwd to downloads path to ensure all files (including thumbnails) go there
+    const ytDlp = spawn(ytDlpPath, args, { cwd: downloadsPath })
     activeProcesses.set(download.id, ytDlp)
     db.updateDownload(download.id, { status: 'downloading' })
     window.webContents.send('download-progress', { id: download.id, status: 'downloading' })

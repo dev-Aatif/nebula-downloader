@@ -30,6 +30,20 @@
     overflow: hidden;
     font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
   }
+
+  [data-theme='light'] {
+    --bg-deep: #f0f2f5;
+    --bg-panel: rgba(255, 255, 255, 0.9);
+    --border-glass: 1px solid rgba(0, 0, 0, 0.08);
+
+    --text-main: #1f2937;
+    --text-dim: #6b7280;
+
+    --neon-blue: #007acc; /* Darker blue for visibility on light bg */
+    --neon-green: #059669; /* Darker green */
+    --neon-purple: #7c3aed; /* Darker purple */
+    --neon-red: #dc2626; /* Darker red */
+  }
 }
 @layer components {
   .toolbar {
@@ -51,20 +65,10 @@
     margin-right: 0;
   }
 
-  .logo-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 3px;
-    background: linear-gradient(135deg, var(--neon-purple), var(--neon-blue));
-    box-shadow: 0 0 10px rgba(189, 0, 255, 0.4);
-  }
-
-  .app-name {
-    font-weight: 700;
-    font-size: 18px;
-    background: linear-gradient(to right, #fff, #94a3b8);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+  .app-logo {
+    height: 32px;
+    width: auto;
+    object-fit: contain;
   }
 
   .tool-group {
@@ -722,5 +726,15 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Shimmer animation for NEBULA branding */
+@keyframes shimmer {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
   }
 }

@@ -169,7 +169,9 @@ export default function History({ downloads, setDownloads }: HistoryProps): Reac
 
   const handleBulkDelete = (): void => {
     if (selectedIds.size === 0) return
-    if (window.confirm(`Are you sure you want to delete ${selectedIds.size} item(s) from history?`)) {
+    if (
+      window.confirm(`Are you sure you want to delete ${selectedIds.size} item(s) from history?`)
+    ) {
       selectedIds.forEach((id) => window.api.deleteDownload(id))
       setDownloads((prev) => prev.filter((d) => !selectedIds.has(d.id)))
       setSelectedIds(new Set())
@@ -226,10 +228,16 @@ export default function History({ downloads, setDownloads }: HistoryProps): Reac
           </>
         )}
         <div className="flex gap-4 ml-auto">
-          <button className="btn-secondary flex items-center gap-2" onClick={() => exportData('json')}>
+          <button
+            className="btn-secondary flex items-center gap-2"
+            onClick={() => exportData('json')}
+          >
             Export as JSON
           </button>
-          <button className="btn-secondary flex items-center gap-2" onClick={() => exportData('csv')}>
+          <button
+            className="btn-secondary flex items-center gap-2"
+            onClick={() => exportData('csv')}
+          >
             Export as CSV
           </button>
           <button

@@ -1,6 +1,26 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import { Download, DownloadError, FormatInfo, PlaylistCheckResult, Settings } from '../main/types'
 
+// Dependency management types
+type DependencyInfo = {
+  installed: boolean
+  version: string | null
+  path: string
+  updateAvailable?: boolean
+  latestVersion?: string
+}
+
+type DependencyStatus = {
+  ytDlp: DependencyInfo
+  ffmpeg: DependencyInfo
+}
+
+type UpdateCheckResult = {
+  updateAvailable: boolean
+  currentVersion: string | null
+  latestVersion: string
+}
+
 declare global {
   interface Window {
     electron: ElectronAPI
@@ -20,6 +40,18 @@ declare global {
       updateSettings: (settings: Partial<Settings>) => Promise<void>
       openDirectoryDialog: () => Promise<string | undefined>
       openFileDialog: () => Promise<string | undefined>
+
+      // Dependency Management
+      getDependencyStatus: () => Promise<DependencyStatus>
+      getFullDependencyStatus: () => Promise<DependencyStatus>
+      installYtDlp: () => Promise<boolean>
+      checkYtDlpUpdate: () => Promise<UpdateCheckResult>
+      checkFfmpegUpdate: () => Promise<UpdateCheckResult>
+      updateYtDlp: () => Promise<{ success: boolean; version: string; error?: string }>
+      runBackgroundUpdates: () => Promise<void>
+      onSetupProgress: (callback: (percent: number) => void) => () => void
+      onYtDlpUpdateProgress: (callback: (percent: number) => void) => () => void
+
       onDownloadProgress: (
         callback: (data: {
           id: string

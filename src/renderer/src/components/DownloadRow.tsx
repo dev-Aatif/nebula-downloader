@@ -35,8 +35,16 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
   onContextMenu,
   index
 }) => {
-  const { title, totalSizeInBytes, downloadedSizeInBytes, progress, status, speedValue, createdAt, updatedAt, outputPath } =
-    download
+  const {
+    title,
+    totalSizeInBytes,
+    downloadedSizeInBytes,
+    progress,
+    status,
+    speedValue,
+    createdAt,
+    updatedAt
+  } = download
 
   const remainingBytes = totalSizeInBytes - downloadedSizeInBytes
 
@@ -82,17 +90,13 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
           {isMultiSelected && <CheckIcon className="w-3 h-3 text-neon-blue" />}
         </div>
       </div>
-      <div className="flex justify-center font-mono text-text-dim text-xs">
-        {index + 1}
-      </div>
+      <div className="flex justify-center font-mono text-text-dim text-xs">{index + 1}</div>
       <div
         className="name-col truncate font-medium hover:text-neon-blue cursor-pointer transition-colors flex flex-col justify-center"
         onClick={() => onSelect(download.id)} // Click title to open details
       >
         <div className="truncate">{title}</div>
-        <div className="text-[10px] text-text-dim truncate font-normal opacity-70" title={outputPath}>
-          {outputPath || 'Preparing download...'}
-        </div>
+        <div className="text-xs text-text-dim/70">{formatBytes(download.totalSizeInBytes)}</div>
         {status === 'error' && download.errorLogs && download.errorLogs.length > 0 && (
           <div className="text-[10px] text-neon-red truncate font-medium mt-0.5">
             Error: {download.errorLogs[download.errorLogs.length - 1].message}

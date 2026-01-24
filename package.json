@@ -1,10 +1,10 @@
 {
   "name": "nebula-downloader",
-  "version": "1.0.0",
-  "description": "An Electron application with React and TypeScript",
+  "version": "1.2.0",
+  "description": "Nebula Downloader - A powerful and sleek video downloader",
   "main": "./out/main/index.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "author": "Nebula Team",
+  "homepage": "https://github.com/dev-Aatif/nebula-downloader",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",

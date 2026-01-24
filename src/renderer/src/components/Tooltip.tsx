@@ -62,4 +62,3 @@ export const InfoIcon: React.FC<InfoIconProps> = ({ tooltip, className = '' }) =
 )
 
 export default Tooltip
-

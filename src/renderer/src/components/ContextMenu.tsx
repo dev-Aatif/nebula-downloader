@@ -96,9 +96,7 @@ export default function ContextMenu({
       style={{ top: y, left: x }}
     >
       {/* Pause/Resume */}
-      {(isDownloading || isQueued) && (
-        <MenuItem label="Pause" onClick={onPause} />
-      )}
+      {(isDownloading || isQueued) && <MenuItem label="Pause" onClick={onPause} />}
       {isPaused && <MenuItem label="Resume" onClick={onResume} />}
       {isError && <MenuItem label="Retry" onClick={onRetry} />}
 

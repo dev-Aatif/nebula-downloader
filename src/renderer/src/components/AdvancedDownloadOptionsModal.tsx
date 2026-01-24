@@ -124,7 +124,8 @@ const AdvancedDownloadOptionsModal: React.FC<AdvancedDownloadOptionsModalProps> 
                 <option value="">Select Video Format (Optional)</option>
                 {videoFormats.map((f) => (
                   <option key={f.format_id} value={f.format_id}>
-                    {formatResolution(f.resolution)} • {getVideoCodecLabel(f.vcodec)} • {f.ext.toUpperCase()}
+                    {formatResolution(f.resolution)} • {getVideoCodecLabel(f.vcodec)} •{' '}
+                    {f.ext.toUpperCase()}
                     {f.fps ? ` @${f.fps}fps` : ''}
                     {f.filesize ? ` (${formatFileSize(f.filesize)})` : ''}
                   </option>

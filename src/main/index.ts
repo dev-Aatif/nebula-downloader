@@ -22,6 +22,16 @@ import {
   YTDLPFormat
 } from './types'
 import { spawn } from 'child_process'
+import {
+  ensureYtDlpInstalled,
+  getDependencyStatus,
+  getFullDependencyStatus,
+  checkYtDlpUpdate,
+  checkFfmpegUpdate,
+  updateYtDlp,
+  runBackgroundUpdateChecks,
+  getYtDlpPath
+} from './dependencyManager'
 
 let mainWindow: electron.BrowserWindow | null = null
 let tray: electron.Tray | null = null
@@ -29,11 +39,7 @@ let tray: electron.Tray | null = null
 async function getVideoInfo(url: string): Promise<Partial<Download> | null> {
   return new Promise((resolve) => {
     const settings = db.getSettings()
-    const ytdlpPath =
-      settings.ytDlpPath ||
-      (process.env.NODE_ENV === 'development'
-        ? join(process.cwd(), 'bin', 'yt-dlp')
-        : join(process.resourcesPath, 'bin', 'yt-dlp'))
+    const ytdlpPath = settings.ytDlpPath || getYtDlpPath()
 
     const formatProcess = spawn(ytdlpPath, ['--dump-json', url])
     let stdout = ''
@@ -82,6 +88,7 @@ electron.app.whenReady().then(async () => {
       width: 900,
       height: 670,
       show: false,
+      title: 'Nebula Downloader',
       autoHideMenuBar: true,
       ...(process.platform === 'linux' ? { icon } : {}),
       webPreferences: {
@@ -215,6 +222,49 @@ electron.app.whenReady().then(async () => {
     }
   )
 
+  // ===== Dependency Management IPC Handlers =====
+
+  // Get current dependency status
+  electron.ipcMain.handle('get-dependency-status', async () => {
+    return getDependencyStatus()
+  })
+
+  // Get full status with update availability
+  electron.ipcMain.handle('get-full-dependency-status', async () => {
+    return getFullDependencyStatus()
+  })
+
+  // Install yt-dlp (used on first run)
+  electron.ipcMain.handle('install-ytdlp', async () => {
+    return ensureYtDlpInstalled((percent) => {
+      mainWindow?.webContents.send('setup-progress', percent)
+    })
+  })
+
+  // Check for yt-dlp update
+  electron.ipcMain.handle('check-ytdlp-update', async () => {
+    return checkYtDlpUpdate()
+  })
+
+  // Check for ffmpeg update
+  electron.ipcMain.handle('check-ffmpeg-update', async () => {
+    return checkFfmpegUpdate()
+  })
+
+  // Update yt-dlp
+  electron.ipcMain.handle('update-ytdlp', async () => {
+    return updateYtDlp((percent) => {
+      mainWindow?.webContents.send('ytdlp-update-progress', percent)
+    })
+  })
+
+  // Run background update checks (called on app start)
+  electron.ipcMain.handle('run-background-updates', async () => {
+    return runBackgroundUpdateChecks()
+  })
+
+  // ===== End Dependency Management =====
+
   electron.ipcMain.handle('open-directory-dialog', async (): Promise<string | undefined> => {
     if (!mainWindow) return undefined
     const { canceled, filePaths } = await electron.dialog.showOpenDialog(mainWindow, {
@@ -240,11 +290,7 @@ electron.app.whenReady().then(async () => {
     ): Promise<{ title: string; thumbnail?: string; duration?: string } | null> => {
       return new Promise((resolve) => {
         const settings = db.getSettings()
-        const ytdlpPath =
-          settings.ytDlpPath ||
-          (process.env.NODE_ENV === 'development'
-            ? join(process.cwd(), 'bin', 'yt-dlp')
-            : join(process.resourcesPath, 'bin', 'yt-dlp'))
+        const ytdlpPath = settings.ytDlpPath || getYtDlpPath()
 
         const formatProcess = spawn(ytdlpPath, [
           '--dump-json',
@@ -285,19 +331,9 @@ electron.app.whenReady().then(async () => {
   electron.ipcMain.handle('get-formats', async (_, url: string): Promise<FormatInfo[] | null> => {
     return new Promise((resolve) => {
       const settings = db.getSettings()
-      const ytdlpPath =
-        settings.ytDlpPath ||
-        (process.env.NODE_ENV === 'development'
-          ? join(process.cwd(), 'bin', 'yt-dlp')
-          : join(process.resourcesPath, 'bin', 'yt-dlp'))
+      const ytdlpPath = settings.ytDlpPath || getYtDlpPath()
 
-      if (process.platform === 'linux' || process.platform === 'darwin') {
-        try {
-          fs.chmodSync(ytdlpPath, '755')
-        } catch (e) {
-          console.warn(`Could not set execute permissions on ${ytdlpPath}:`, e)
-        }
-      }
+      // Windows-only: no need for chmod
 
       const formatProcess = spawn(ytdlpPath, ['--dump-json', '--no-playlist', url])
       let stdout = ''
@@ -347,19 +383,9 @@ electron.app.whenReady().then(async () => {
     async (_, url: string): Promise<PlaylistCheckResult | null> => {
       return new Promise((resolve) => {
         const settings = db.getSettings()
-        const ytdlpPath =
-          settings.ytDlpPath ||
-          (process.env.NODE_ENV === 'development'
-            ? join(process.cwd(), 'bin', 'yt-dlp')
-            : join(process.resourcesPath, 'bin', 'yt-dlp'))
+        const ytdlpPath = settings.ytDlpPath || getYtDlpPath()
 
-        if (process.platform === 'linux' || process.platform === 'darwin') {
-          try {
-            fs.chmodSync(ytdlpPath, '755')
-          } catch (e) {
-            console.warn(`Could not set execute permissions on ${ytdlpPath}:`, e)
-          }
-        }
+        // Windows-only: no need for chmod
 
         const playlistProcess = spawn(ytdlpPath, ['--flat-playlist', '--print-json', url])
         let stdout = ''

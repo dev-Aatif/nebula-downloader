@@ -10,6 +10,26 @@ type DownloadProgressData = {
   speedValue?: number
 }
 
+// Dependency management types
+type DependencyInfo = {
+  installed: boolean
+  version: string | null
+  path: string
+  updateAvailable?: boolean
+  latestVersion?: string
+}
+
+type DependencyStatus = {
+  ytDlp: DependencyInfo
+  ffmpeg: DependencyInfo
+}
+
+type UpdateCheckResult = {
+  updateAvailable: boolean
+  currentVersion: string | null
+  latestVersion: string
+}
+
 const api = {
   getDownloads: (): Promise<Download[]> => ipcRenderer.invoke('get-downloads'),
   getCompletedDownloads: (): Promise<Download[]> => ipcRenderer.invoke('get-completed-downloads'),
@@ -34,6 +54,29 @@ const api = {
     url: string
   ): Promise<{ title: string; thumbnail?: string; duration?: string } | null> =>
     ipcRenderer.invoke('fetch-metadata', url),
+
+  // ===== Dependency Management =====
+  getDependencyStatus: (): Promise<DependencyStatus> => ipcRenderer.invoke('get-dependency-status'),
+  getFullDependencyStatus: (): Promise<DependencyStatus> =>
+    ipcRenderer.invoke('get-full-dependency-status'),
+  installYtDlp: (): Promise<boolean> => ipcRenderer.invoke('install-ytdlp'),
+  checkYtDlpUpdate: (): Promise<UpdateCheckResult> => ipcRenderer.invoke('check-ytdlp-update'),
+  checkFfmpegUpdate: (): Promise<UpdateCheckResult> => ipcRenderer.invoke('check-ffmpeg-update'),
+  updateYtDlp: (): Promise<{ success: boolean; version: string; error?: string }> =>
+    ipcRenderer.invoke('update-ytdlp'),
+  runBackgroundUpdates: (): Promise<void> => ipcRenderer.invoke('run-background-updates'),
+  onSetupProgress: (callback: (percent: number) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, percent: number): void => callback(percent)
+    ipcRenderer.on('setup-progress', handler)
+    return () => ipcRenderer.removeListener('setup-progress', handler)
+  },
+  onYtDlpUpdateProgress: (callback: (percent: number) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, percent: number): void => callback(percent)
+    ipcRenderer.on('ytdlp-update-progress', handler)
+    return () => ipcRenderer.removeListener('ytdlp-update-progress', handler)
+  },
+  // ===== End Dependency Management =====
+
   onDownloadProgress: (callback: (data: DownloadProgressData) => void): (() => void) => {
     const handler = (_event: Electron.IpcRendererEvent, data: DownloadProgressData): void =>
       callback(data)

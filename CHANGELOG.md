@@ -4,6 +4,33 @@ All notable changes to the Nebula Downloader project are documented in this file
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.0] - 2026-01-22
+
+### Added
+
+#### Cross-Platform Support
+
+- **Linux Support**: Full Linux compatibility with AppImage and Snap packages
+- **Platform Detection**: Automatic detection and download of correct yt-dlp binary for each OS
+- **Executable Permissions**: Automatic `chmod +x` for binaries on Linux/macOS
+
+#### Build System
+
+- **Platform-Specific Resources**: ffmpeg binaries are now bundled per-platform to reduce app size
+- **Optimized Packaging**: Windows builds only include Windows binaries, Linux builds only include Linux binaries
+
+### Changed
+
+- Updated dependency manager to handle cross-platform binary paths
+- Improved development workflow with updated resource paths
+
+### Fixed
+
+- Fixed yt-dlp download failing on Linux due to hardcoded `.exe` extension
+- Fixed ffmpeg path resolution for Linux systems
+
+---
+
 ## [1.1.0] - 2026-01-11
 
 ### Added

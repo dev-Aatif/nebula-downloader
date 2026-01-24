@@ -1,18 +1,27 @@
-appId: com.electron.app
-productName: nebula-downloader
+appId: com.nebula.downloader
+productName: Nebula Downloader
 directories:
   buildResources: build
 files:
   - '!**/.vscode/*'
   - '!src/*'
+  - '!bin/*'
+  - '!bin/**/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+# Bundle ffmpeg from resources/bin (yt-dlp is downloaded on first run)
+
 asarUnpack:
   - resources/**
 win:
-  executableName: nebula-downloader
+  extraResources:
+    - from: resources/bin
+      to: bin
+      filter:
+        - 'ffmpeg.exe'
+  executableName: NebulaDownloader
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -29,15 +38,22 @@ mac:
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
+  extraResources:
+    - from: resources/bin
+      to: bin
+      filter:
+        - 'ffmpeg'
   target:
     - AppImage
     - snap
     - deb
-  maintainer: electronjs.org
+  maintainer: Nebula Team
   category: Utility
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
+# GitHub Releases for auto-updates (update owner/repo before first release)
 publish:
-  provider: generic
-  url: https://example.com/auto-updates
+  provider: github
+  owner: dev-Aatif
+  repo: nebula-downloader

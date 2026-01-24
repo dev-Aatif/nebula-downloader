@@ -83,3 +83,11 @@ coverage/
 typecheck-output.txt
 
 designs/
+
+# Downloaded archives (ffmpeg, etc.)
+*.tar.xz
+ffmpeg-win.zip
+ffmpeg-linux.tar.xz
+
+# Helper scripts (development only)
+scripts/

@@ -177,7 +177,6 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({ isOpen, onClose, on
       clearTimeout(fetchTimeoutRef.current)
     }
 
-
     // Check if it's a playlist first (only for single URL mode)
     if (!isBatchMode && !playlistItems.length) {
       setIsCheckingPlaylist(true)
@@ -230,7 +229,6 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({ isOpen, onClose, on
   const handleKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'Enter' && isUrlValid && !isAdding && !isCheckingPlaylist) {
       handleAdd()
-
     } else if (e.key === 'Escape') {
       onClose()
     }
@@ -249,7 +247,11 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({ isOpen, onClose, on
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal max-w-md" onClick={(e) => e.stopPropagation()} onKeyDown={handleKeyDown}>
+      <div
+        className="modal max-w-md"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleKeyDown}
+      >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Add New Download</h2>
           <button
@@ -305,13 +307,16 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({ isOpen, onClose, on
 
         {/* Batch URL count or Validation hint */}
         {isBatchMode ? (
-          <p className={`text-xs mt-1.5 ${batchUrls.length > 0 ? 'text-neon-blue' : 'text-text-dim'}`}>
+          <p
+            className={`text-xs mt-1.5 ${batchUrls.length > 0 ? 'text-neon-blue' : 'text-text-dim'}`}
+          >
             {batchUrls.length > 0
               ? `✓ ${batchUrls.length} valid URL${batchUrls.length > 1 ? 's' : ''} detected`
               : 'Paste URLs separated by new lines or commas'}
           </p>
         ) : (
-          url && !isUrlValid && (
+          url &&
+          !isUrlValid && (
             <p className="text-xs text-red-400 mt-1.5">
               {getUrlValidationMessage(url) || 'Please enter a valid video URL'}
             </p>
@@ -329,27 +334,31 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({ isOpen, onClose, on
                   <div className="h-3 bg-white/10 rounded w-1/4 animate-pulse" />
                 </div>
               </div>
-            ) : metadata && (
-              <div className="flex items-center gap-3">
-                {metadata.thumbnail ? (
-                  <img
-                    src={metadata.thumbnail}
-                    alt=""
-                    className="w-16 h-10 object-cover rounded bg-black"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                  />
-                ) : (
-                  <div className="w-16 h-10 bg-white/10 rounded flex items-center justify-center">
-                    <DownloadIcon className="w-5 h-5 text-text-dim" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-text-main font-medium truncate">{metadata.title}</p>
-                  {metadata.duration && (
-                    <p className="text-xs text-text-dim">{metadata.duration}</p>
+            ) : (
+              metadata && (
+                <div className="flex items-center gap-3">
+                  {metadata.thumbnail ? (
+                    <img
+                      src={metadata.thumbnail}
+                      alt=""
+                      className="w-16 h-10 object-cover rounded bg-black"
+                      onError={(e) => {
+                        ;(e.target as HTMLImageElement).style.display = 'none'
+                      }}
+                    />
+                  ) : (
+                    <div className="w-16 h-10 bg-white/10 rounded flex items-center justify-center">
+                      <DownloadIcon className="w-5 h-5 text-text-dim" />
+                    </div>
                   )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-text-main font-medium truncate">{metadata.title}</p>
+                    {metadata.duration && (
+                      <p className="text-xs text-text-dim">{metadata.duration}</p>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )
             )}
           </div>
         )}
@@ -370,11 +379,15 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({ isOpen, onClose, on
             />
           </button>
 
-          <div className={`transition-all duration-300 ease-in-out overflow-hidden ${showAdvanced ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}>
+          <div
+            className={`transition-all duration-300 ease-in-out overflow-hidden ${showAdvanced ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}
+          >
             <div className="p-4 pt-0 space-y-4">
               {/* Format Presets */}
               <div>
-                <label className="text-xs text-text-dim uppercase tracking-wide mb-2 block">Quality Preset</label>
+                <label className="text-xs text-text-dim uppercase tracking-wide mb-2 block">
+                  Quality Preset
+                </label>
                 <div className="grid grid-cols-2 gap-2">
                   {FORMAT_PRESETS.map((preset) => (
                     <button
@@ -423,13 +436,17 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({ isOpen, onClose, on
         </div>
 
         <div className="modal-actions">
-          <button onClick={onClose} className="tool-btn btn-lg">Cancel</button>
+          <button onClick={onClose} className="tool-btn btn-lg">
+            Cancel
+          </button>
           <button
             onClick={handleAdd}
             className={getButtonClasses()}
             disabled={!isUrlValid || isAdding || isCheckingPlaylist}
           >
-            <DownloadIcon className={`w-4 h-4 ${isAdding || isCheckingPlaylist ? 'animate-bounce' : ''}`} />
+            <DownloadIcon
+              className={`w-4 h-4 ${isAdding || isCheckingPlaylist ? 'animate-bounce' : ''}`}
+            />
             {isCheckingPlaylist ? 'Checking...' : isAdding ? 'Adding...' : 'Add Download'}
           </button>
         </div>
@@ -451,7 +468,3 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({ isOpen, onClose, on
 }
 
 export default AddDownloadModal
-
-
-
-

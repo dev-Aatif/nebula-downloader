@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useCallback } from 'react'
 import type { Download, PlaylistItem } from '../../../main/types'
 import DownloadRow from '../components/DownloadRow'
 import PlaylistModal from '../components/PlaylistModal'
@@ -9,7 +9,14 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import ContextMenu from '../components/ContextMenu'
 import UndoToast from '../components/UndoToast'
 
-type DownloadFilter = 'All' | 'Downloading' | 'Paused' | 'Completed' | 'Queued' | 'Error' | 'Cancelled'
+type DownloadFilter =
+  | 'All'
+  | 'Downloading'
+  | 'Paused'
+  | 'Completed'
+  | 'Queued'
+  | 'Error'
+  | 'Cancelled'
 
 const SortIndicator = ({
   field,
@@ -34,7 +41,10 @@ export default function Downloads({
   setSelectedDownloadId,
   searchTerm,
   downloads,
-  setDownloads
+  setDownloads,
+  selectedIds,
+  setSelectedIds,
+  onMultiSelect
 }: {
   filter?: DownloadFilter
   setFilter?: React.Dispatch<React.SetStateAction<DownloadFilter>>
@@ -43,14 +53,16 @@ export default function Downloads({
   searchTerm?: string
   downloads: Download[]
   setDownloads: React.Dispatch<React.SetStateAction<Download[]>>
+  selectedIds: Set<string>
+  setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>
+  onMultiSelect: (id: string) => void
 }): React.ReactElement {
   const [showPlaylistModal, setShowPlaylistModal] = useState(false)
   const [currentPlaylistItems, setCurrentPlaylistItems] = useState<PlaylistItem[]>([])
   const [isAdvancedOptionsModalOpen, setIsAdvancedOptionsModalOpen] = useState(false)
   const [advancedOptionsVideoUrl] = useState('')
   const [selectedFormatId, setSelectedFormatId] = useState<string | undefined>(undefined)
-  const [isLoading, setIsLoading] = useState(true)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  // selectedIds is now a prop
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean
     title: string
@@ -67,23 +79,15 @@ export default function Downloads({
     y: number
     download: Download
   } | null>(null)
-  
+
   // Undo delete state
   const [pendingDelete, setPendingDelete] = useState<{
     id: string
     title: string
   } | null>(null)
 
-
-  useEffect(() => {
-    const unlistenLoaded = window.api.onDownloadsLoaded((loadedDownloads) => {
-      setDownloads(loadedDownloads)
-      setIsLoading(false)
-    })
-    return () => {
-      unlistenLoaded()
-    }
-  }, [setDownloads])
+  // Derive loading state from downloads - no useEffect needed
+  const isLoading = downloads.length === 0
 
   const handleDownloadPlaylistItems = (selectedUrls: string[]): void => {
     selectedUrls.forEach((selectedUrl) => {
@@ -106,29 +110,28 @@ export default function Downloads({
   }
 
   const handleDelete = (id: string): void => {
-    const download = downloads.find(d => d.id === id)
+    const download = downloads.find((d) => d.id === id)
     if (!download) return
-    
+
     // Hide item locally (soft delete)
-    setDownloads(prev => prev.filter(d => d.id !== id))
-    
+    setDownloads((prev) => prev.filter((d) => d.id !== id))
+
     // Show undo toast
     setPendingDelete({ id, title: download.title || 'Download' })
   }
-  
+
   const handleUndoDelete = useCallback(() => {
     // Restore item by refetching downloads
     window.api.getDownloads().then(setDownloads)
     setPendingDelete(null)
   }, [setDownloads])
-  
+
   const handleConfirmDelete = useCallback(() => {
     if (pendingDelete) {
       window.api.deleteDownload(pendingDelete.id)
       setPendingDelete(null)
     }
   }, [pendingDelete])
-
 
   const [sortField, setSortField] = useState<keyof Download | 'added'>('createdAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
@@ -152,62 +155,8 @@ export default function Downloads({
     }
   }
 
-  const handleToggleSelect = (id: string): void => {
-    const newSelectedIds = new Set(selectedIds)
-    if (newSelectedIds.has(id)) {
-      newSelectedIds.delete(id)
-    } else {
-      newSelectedIds.add(id)
-    }
-    setSelectedIds(newSelectedIds)
-  }
-
-  const handleBulkDelete = (): void => {
-    if (selectedIds.size === 0) return
-    setConfirmConfig({
-      isOpen: true,
-      title: 'Delete Selected Downloads',
-      message: `Are you sure you want to delete ${selectedIds.size} download(s)?`,
-      onConfirm: () => {
-        selectedIds.forEach((id) => window.api.deleteDownload(id))
-        setSelectedIds(new Set())
-        setConfirmConfig((prev) => ({ ...prev, isOpen: false }))
-      }
-    })
-  }
-
-  const handleBulkPause = (): void => {
-    if (selectedIds.size === 0) return
-    selectedIds.forEach((id) => {
-      const download = downloads.find((d) => d.id === id)
-      if (download && (download.status === 'downloading' || download.status === 'queued')) {
-        window.api.pauseDownload(id)
-      }
-    })
-    setSelectedIds(new Set())
-  }
-
-  const handleBulkResume = (): void => {
-    if (selectedIds.size === 0) return
-    selectedIds.forEach((id) => {
-      const download = downloads.find((d) => d.id === id)
-      if (download && download.status === 'paused') {
-        window.api.resumeDownload(id)
-      }
-    })
-    setSelectedIds(new Set())
-  }
-
-  const handleBulkRetry = (): void => {
-    if (selectedIds.size === 0) return
-    selectedIds.forEach((id) => {
-      const download = downloads.find((d) => d.id === id)
-      if (download && download.status === 'error') {
-        window.api.retryDownload(id)
-      }
-    })
-    setSelectedIds(new Set())
-  }
+  // handleToggleSelect is now passed as onMultiSelect prop
+  // Bulk handlers (delete, pause, resume) moved to App.tsx toolbar
 
 
   const sortedDownloads = [...downloads]
@@ -246,23 +195,7 @@ export default function Downloads({
 
   return (
     <>
-      {selectedIds.size > 0 && (
-        <div className="mb-2 px-2 flex items-center gap-2">
-          <span className="text-sm text-text-dim">{selectedIds.size} selected</span>
-          <button className="btn-secondary text-sm px-3 py-1" onClick={handleBulkPause}>
-            Pause
-          </button>
-          <button className="btn-secondary text-sm px-3 py-1" onClick={handleBulkResume}>
-            Resume
-          </button>
-          <button className="btn-secondary text-sm px-3 py-1" onClick={handleBulkRetry}>
-            Retry
-          </button>
-          <button className="btn-secondary text-sm px-3 py-1 text-red-400 border-red-400/30" onClick={handleBulkDelete}>
-            Delete
-          </button>
-        </div>
-      )}
+      {/* Bulk actions removed as requested - moved to toolbar */}
       <div className="grid-header">
         <div className="flex justify-center">
           <button
@@ -339,7 +272,7 @@ export default function Downloads({
               isSelected={download.id === selectedDownloadId}
               isMultiSelected={selectedIds.has(download.id)}
               onSelect={handleSelect}
-              onMultiSelect={handleToggleSelect}
+              onMultiSelect={onMultiSelect} // Use prop
               onPause={window.api.pauseDownload}
               onResume={window.api.resumeDownload}
               onRetry={window.api.retryDownload}
@@ -396,7 +329,7 @@ export default function Downloads({
           onCopyUrl={() => navigator.clipboard.writeText(contextMenu.download.url)}
         />
       )}
-      
+
       {pendingDelete && (
         <UndoToast
           message={`"${pendingDelete.title}" deleted`}
@@ -405,6 +338,5 @@ export default function Downloads({
         />
       )}
     </>
-
   )
 }
