@@ -440,7 +440,7 @@ export default function SettingsPage(): React.JSX.Element {
                       </span>
                       {depStatus.ffmpeg.updateAvailable && (
                         <span className="text-xs text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded">
-                          Update available
+                          v{depStatus.ffmpeg.latestVersion} available
                         </span>
                       )}
                       <button
@@ -450,6 +450,11 @@ export default function SettingsPage(): React.JSX.Element {
                       >
                         {isCheckingFfmpeg ? 'Checking...' : 'Check for Updates'}
                       </button>
+                      {depStatus.ffmpeg.updateAvailable && (
+                        <span className="text-xs text-text-dim bg-white/5 px-2 py-0.5 rounded">
+                          Manual update required
+                        </span>
+                      )}
                     </>
                   ) : (
                     <span className="text-sm text-red-400">Not found</span>

@@ -32,6 +32,7 @@ import {
   runBackgroundUpdateChecks,
   getYtDlpPath
 } from './dependencyManager'
+import { startApiServer, stopApiServer } from './apiServer'
 
 let mainWindow: electron.BrowserWindow | null = null
 let tray: electron.Tray | null = null
@@ -130,6 +131,16 @@ electron.app.whenReady().then(async () => {
   console.log('='.repeat(60))
   console.log(`Download Directory: ${downloadsPath}`)
   console.log('='.repeat(60))
+
+  // Start API server for browser extension integration
+  // Defaults to enabled on port 5000 if not configured
+  const apiServerEnabled = initialSettings.apiServerEnabled !== false
+  const apiServerPort = initialSettings.apiServerPort || 5000
+  if (apiServerEnabled) {
+    startApiServer(apiServerPort, mainWindow).catch((err) => {
+      console.error('[API Server] Failed to start:', err.message)
+    })
+  }
 
   if (process.platform !== 'darwin') {
     const iconPath = join(__dirname, '../../resources/icon.png')
@@ -581,9 +592,50 @@ electron.app.whenReady().then(async () => {
     }
   })
 
-  mainWindow.on('ready-to-show', () => {
+  mainWindow.on('ready-to-show', async () => {
     mainWindow?.show()
     mainWindow?.webContents.send('downloads-loaded', downloads)
+
+    // Run startup update checks for dependencies
+    try {
+      const [ytDlpResult, ffmpegResult] = await Promise.all([
+        checkYtDlpUpdate().catch(() => null),
+        checkFfmpegUpdate().catch(() => null)
+      ])
+
+      const updatesAvailable: { ytDlp?: string; ffmpeg?: string } = {}
+
+      if (ytDlpResult?.updateAvailable && ytDlpResult.latestVersion) {
+        updatesAvailable.ytDlp = ytDlpResult.latestVersion
+        console.log(
+          `[DependencyManager] yt-dlp update available: ${ytDlpResult.currentVersion} -> ${ytDlpResult.latestVersion}`
+        )
+      }
+
+      if (ffmpegResult?.updateAvailable && ffmpegResult.latestVersion) {
+        updatesAvailable.ffmpeg = ffmpegResult.latestVersion
+        console.log(
+          `[DependencyManager] FFmpeg update available: ${ffmpegResult.currentVersion} -> ${ffmpegResult.latestVersion}`
+        )
+      }
+
+      // Notify renderer if updates are available
+      if (Object.keys(updatesAvailable).length > 0) {
+        mainWindow?.webContents.send('updates-available', updatesAvailable)
+
+        // Show system notification
+        const updateList = Object.entries(updatesAvailable)
+          .map(([name, version]) => `${name}: v${version}`)
+          .join(', ')
+
+        new electron.Notification({
+          title: 'Updates Available',
+          body: `New versions available: ${updateList}. Go to Settings to update.`
+        }).show()
+      }
+    } catch (error) {
+      console.warn('[DependencyManager] Startup update check failed:', error)
+    }
   })
 
   electron.nativeTheme.on('updated', () => {
@@ -604,7 +656,10 @@ electron.app.on('window-all-closed', () => {
 })
 
 // Persist queue state before quitting - mark active downloads as queued for resume
-electron.app.on('before-quit', () => {
+electron.app.on('before-quit', async () => {
+  // Stop the API server gracefully
+  await stopApiServer()
+
   const downloads = db.getDownloads()
   downloads
     .filter((d) => d.status === 'downloading')

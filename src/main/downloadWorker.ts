@@ -105,7 +105,7 @@ export function initializeWorker(downloads: Download[], window: BrowserWindow): 
   mainWindowRef = window
   // Restore downloads that were queued, paused, or actively downloading when app was killed
   downloads
-    .filter((d) => d.status === 'paused' || d.status === 'queued' || d.status === 'downloading')
+    .filter((d) => d.status === 'queued' || d.status === 'downloading')
     .forEach((d) => {
       if (!downloadQueue.some((queuedD) => queuedD.id === d.id)) {
         // Reset downloading status to queued for clean restart
@@ -196,14 +196,21 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
 
   const formatSelection = download.formatId ? download.formatId : settings.defaultFormat
 
+  // Detect if this is an audio-only download
+  const isAudioOnly =
+    formatSelection.includes('bestaudio') ||
+    formatSelection.includes('audio') ||
+    formatSelection === 'mp3' ||
+    formatSelection === 'm4a' ||
+    formatSelection === 'opus' ||
+    formatSelection === 'wav'
+
   const ytDlpPath = settings.ytDlpPath || getYtDlpPath()
 
   const args = [
-    // '--dump-json', // REMOVED: This forces simulation mode!
     '--progress',
     '--progress-template',
     '%(progress)j',
-    '--write-thumbnail',
     '--no-warnings',
     '-f',
     formatSelection,
@@ -211,13 +218,19 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
     downloadsPath,
     '--output',
     outputTemplate,
-    '--merge-output-format',
-    'mp4',
     '--no-simulate',
     '--print',
     '{"title": %(title)j, "thumbnail": %(thumbnail)j, "filesize": %(filesize,filesize_approx)j, "filename": %(filename)j, "_filename": %(_filename)j}',
     download.url
   ]
+
+  // For audio-only downloads, embed thumbnail and metadata
+  if (isAudioOnly) {
+    args.unshift('--embed-thumbnail', '--add-metadata', '--convert-thumbnails', 'jpg')
+  } else {
+    // For video, use mp4 merge format
+    args.splice(args.indexOf('--no-simulate'), 0, '--merge-output-format', 'mp4')
+  }
 
   if (settings.proxy) args.push('--proxy', settings.proxy)
 
@@ -272,7 +285,46 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
           // Handle our custom metadata JSON
           // We removed force_path because it caused "NA" syntax errors.
           // Now safely using filename or _filename which are properly JSON escaped by yt-dlp's %()j flag
-          if (output.filename || output._filename) {
+          // Distinguish between Info JSON and Progress JSON
+          const isProgress =
+            'status' in output && ('downloaded_bytes' in output || 'percent' in output)
+
+          if (isProgress) {
+            // Treat as Progress JSON (from --progress-template)
+            const updateData: Partial<Download> = {
+              progress: output.percent ? parseFloat(output.percent.toString().replace('%', '')) : 0,
+              speed: output.speed_str || '0',
+              eta: output.eta_str || '0',
+              downloadedSizeInBytes: output.downloaded_bytes || 0,
+              status: 'downloading',
+              speedValue: output.speed || 0
+            }
+
+            if (output.total_bytes || output.total_bytes_estimate) {
+              updateData.totalSizeInBytes = output.total_bytes || output.total_bytes_estimate
+            }
+
+            // Also capture filename from progress if available, just in case
+            if (output.filename || output._filename) {
+              const rawPath = output.filename || output._filename
+              if (rawPath && rawPath !== 'NA') {
+                let finalPath = rawPath
+                if (!path.isAbsolute(finalPath)) {
+                  finalPath = path.join(downloadsPath, finalPath)
+                }
+                updateData.outputPath = finalPath
+              }
+            }
+
+            await db.updateDownload(download.id, updateData)
+            window.webContents.send('download-progress', { id: download.id, ...updateData })
+
+            // Update Windows taskbar progress indicator
+            if (updateData.progress !== undefined) {
+              window.setProgressBar(updateData.progress / 100)
+            }
+          } else if (output.filename || output._filename) {
+            // Handle our custom metadata JSON
             const rawPath = output.filename || output._filename
             if (rawPath) {
               // yt-dlp might return "NA" (string) even with j flag if we are unlucky,
@@ -295,17 +347,11 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
 
                 await db.updateDownload(download.id, updateData)
                 window.webContents.send('download-progress', { id: download.id, ...updateData })
-                continue
               }
             }
-          }
-
-          // Distinguish between Info JSON and Progress JSON
-          const isProgress =
-            'status' in output && ('downloaded_bytes' in output || 'percent' in output)
-
-          if (!isProgress) {
-            // Treat as Info JSON (from --dump-json or generic output)
+          } else {
+            // Treat as generic Info JSON (from --dump-json or generic output) if it's neither of the above
+            // (Remaining logic for generic info)
             const updateData: Partial<Download> = {}
 
             if (output.title && download.title !== output.title) {
@@ -333,28 +379,6 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
                 id: download.id,
                 ...updateData
               })
-            }
-          } else {
-            // Treat as Progress JSON (from --progress-template)
-            const updateData: Partial<Download> = {
-              progress: output.percent ? parseFloat(output.percent.toString().replace('%', '')) : 0,
-              speed: output.speed_str || '0',
-              eta: output.eta_str || '0',
-              downloadedSizeInBytes: output.downloaded_bytes || 0,
-              status: 'downloading',
-              speedValue: output.speed || 0
-            }
-
-            if (output.total_bytes || output.total_bytes_estimate) {
-              updateData.totalSizeInBytes = output.total_bytes || output.total_bytes_estimate
-            }
-
-            await db.updateDownload(download.id, updateData)
-            window.webContents.send('download-progress', { id: download.id, ...updateData })
-
-            // Update Windows taskbar progress indicator
-            if (updateData.progress !== undefined) {
-              window.setProgressBar(updateData.progress / 100)
             }
           }
         } catch (err) {

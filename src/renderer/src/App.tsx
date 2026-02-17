@@ -205,7 +205,20 @@ function App(): React.ReactElement {
       setSetupProgress(percent)
     })
 
-    return () => unlistenSetup()
+    // Listen for update availability notifications from main process
+    const unlistenUpdates = window.api.onUpdatesAvailable((updates) => {
+      const updateNames = Object.entries(updates)
+        .map(([name, version]) => `${name}: v${version}`)
+        .join(', ')
+      console.log(`[Updates] Available: ${updateNames}`)
+      // The system notification is already shown by main process
+      // User can navigate to Settings to update
+    })
+
+    return () => {
+      unlistenSetup()
+      unlistenUpdates()
+    }
   }, [])
 
   const handleAcceptDisclaimer = async (): Promise<void> => {

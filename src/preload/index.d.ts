@@ -79,6 +79,9 @@ declare global {
         url: string
       ) => Promise<{ title: string; thumbnail?: string; duration?: string } | null>
       getFormats: (url: string) => Promise<FormatInfo[] | null>
+      onUpdatesAvailable: (
+        callback: (updates: { ytDlp?: string; ffmpeg?: string }) => void
+      ) => () => void
     }
   }
 }

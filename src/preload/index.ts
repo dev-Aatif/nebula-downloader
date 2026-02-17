@@ -130,7 +130,17 @@ const api = {
   },
   readClipboard: (): Promise<string> => ipcRenderer.invoke('read-clipboard'),
   checkPlaylist: (url: string): Promise<PlaylistItem[] | null> =>
-    ipcRenderer.invoke('check-playlist', url)
+    ipcRenderer.invoke('check-playlist', url),
+  onUpdatesAvailable: (
+    callback: (updates: { ytDlp?: string; ffmpeg?: string }) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: { ytDlp?: string; ffmpeg?: string }
+    ): void => callback(data)
+    ipcRenderer.on('updates-available', handler)
+    return () => ipcRenderer.removeListener('updates-available', handler)
+  }
 }
 
 if (process.contextIsolated) {

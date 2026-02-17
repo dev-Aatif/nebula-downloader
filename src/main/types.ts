@@ -76,4 +76,6 @@ export type Settings = {
   autoDownload?: boolean // Skip config modal and download immediately
   hasSeenDisclaimer?: boolean // Track if user has seen the copyright disclaimer
   speedLimit?: number // Download speed limit in KB/s (0 = unlimited)
+  apiServerEnabled?: boolean // Enable/disable HTTP API server for browser extension
+  apiServerPort?: number // Port for the HTTP API server (default: 5000)
 }

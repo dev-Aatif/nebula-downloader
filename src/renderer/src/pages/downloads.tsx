@@ -219,9 +219,6 @@ export default function Downloads({
         <div className="header-clickable justify-center" onClick={() => handleSort('status')}>
           Status <SortIndicator field="status" sortField={sortField} sortOrder={sortOrder} />
         </div>
-        <div className="header-clickable justify-center" onClick={() => handleSort('speedValue')}>
-          Speed <SortIndicator field="speedValue" sortField={sortField} sortOrder={sortOrder} />
-        </div>
         <div
           className="header-clickable justify-center"
           onClick={() => handleSort('totalSizeInBytes')}

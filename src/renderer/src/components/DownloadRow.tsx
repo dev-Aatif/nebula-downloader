@@ -41,18 +41,11 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
     downloadedSizeInBytes,
     progress,
     status,
-    speedValue,
-    createdAt,
-    updatedAt
+    speedValue
   } = download
 
   const remainingBytes = totalSizeInBytes - downloadedSizeInBytes
 
-  // Calculate average speed for completed items
-  const averageSpeed =
-    status === 'completed' && updatedAt && createdAt
-      ? totalSizeInBytes / ((new Date(updatedAt).getTime() - new Date(createdAt).getTime()) / 1000)
-      : 0
 
   const getEta = (): string => {
     if (!speedValue || speedValue === 0 || !totalSizeInBytes || progress === 100) return ''
@@ -113,20 +106,13 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
           {status === 'downloading' ? `${Math.floor(progress)}% ${eta ? `· ${eta}` : ''}` : status}
         </span>
       </div>
-      <div className="justify-center text-neon-blue font-mono text-[11px]">
-        {status === 'completed'
-          ? averageSpeed && isFinite(averageSpeed) && averageSpeed > 0
-            ? `${formatBytes(averageSpeed)}/s (avg)`
-            : '—'
-          : speedValue && speedValue > 0
-            ? `${formatBytes(speedValue)}/s`
-            : '—'}
-      </div>
       <div
         className="justify-center font-mono text-[11px]"
         title={`Remaining: ${formatBytes(remainingBytes)}`}
       >
-        {status === 'completed'
+        {status === 'downloading'
+          ? `${speedValue && speedValue > 0 ? formatBytes(speedValue) + '/s' : '0 B/s'} / ${formatBytes(totalSizeInBytes)}`
+          : status === 'completed'
           ? formatBytes(totalSizeInBytes)
           : `${formatBytes(downloadedSizeInBytes)} / ${formatBytes(totalSizeInBytes)}`}
       </div>

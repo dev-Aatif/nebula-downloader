@@ -207,7 +207,7 @@
 
   .grid-header {
     display: grid;
-    grid-template-columns: 40px 50px 4fr 1.2fr 1fr 1fr 1fr 40px;
+    grid-template-columns: 40px 50px 4fr 1.2fr 1fr 1fr 40px;
     background: #161b22;
     border-bottom: var(--border-glass);
     position: sticky;
@@ -217,7 +217,7 @@
 
   .grid-row {
     display: grid;
-    grid-template-columns: 40px 50px 4fr 1.2fr 1fr 1fr 1fr 40px;
+    grid-template-columns: 40px 50px 4fr 1.2fr 1fr 1fr 40px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
     transition: background 0.1s;
   }

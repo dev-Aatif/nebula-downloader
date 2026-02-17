@@ -4,6 +4,38 @@ All notable changes to the Nebula Downloader project are documented in this file
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.0] - 2026-01-25
+
+### Added
+
+#### Update Notifications
+
+- **Startup Update Check**: App now checks for yt-dlp and FFmpeg updates at launch
+- **System Notification**: Users are notified via system notification when updates are available
+- **Settings Update UI**: FFmpeg now shows available version when update is detected
+
+### Fixed
+
+#### Download Progress
+
+- **Dynamic Progress**: Fixed download progress stuck at 0% - now updates dynamically during download
+- **Speed Display**: Fixed speed showing 0 B/s - now displays actual download speed
+
+#### Thumbnail Handling
+
+- **No Separate Thumbnails**: Video downloads no longer create separate thumbnail files
+- **Audio Metadata Embedding**: Audio downloads now embed thumbnail and metadata directly in the file
+  - Uses `--embed-thumbnail` flag to embed album art in audio files
+  - Uses `--add-metadata` to include track information
+  - Thumbnails are converted to JPEG for maximum compatibility
+
+### Changed
+
+- Download worker now conditionally applies `--merge-output-format mp4` only for video downloads
+- Audio-only downloads use embedded metadata instead of separate files
+
+---
+
 ## [1.2.0] - 2026-01-22
 
 ### Added
