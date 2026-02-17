@@ -121,33 +121,48 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({ isOpen, onClose, on
     }
   }, [url, isUrlValid, fetchMetadata])
 
+  // Track if settings have been loaded to prevent overwriting user selection
+  const settingsLoadedRef = useRef(false)
+
   // Load saved preferences when modal opens
   useEffect(() => {
     if (isOpen) {
+      settingsLoadedRef.current = false
       // Load last used preferences
       window.api.getSettings().then((settings) => {
-        if (settings.lastPreset && FORMAT_PRESETS.some((p) => p.id === settings.lastPreset)) {
-          setSelectedPreset(settings.lastPreset)
-        }
-        if (settings.downloadSubtitles !== undefined) {
-          setDownloadSubtitles(settings.downloadSubtitles)
+        // Only set if user hasn't changed it yet
+        if (!settingsLoadedRef.current) {
+          if (settings.lastPreset && FORMAT_PRESETS.some((p) => p.id === settings.lastPreset)) {
+            setSelectedPreset(settings.lastPreset)
+          }
+          if (settings.downloadSubtitles !== undefined) {
+            setDownloadSubtitles(settings.downloadSubtitles)
+          }
+          settingsLoadedRef.current = true
         }
       })
       handlePasteFromClipboard()
       inputRef.current?.focus()
     } else {
-      // Save preferences when modal closes (only if user made a selection)
-      if (selectedPreset !== 'default' || downloadSubtitles) {
-        window.api.updateSettings({
-          lastPreset: selectedPreset,
-          downloadSubtitles: downloadSubtitles
-        })
-      }
+      // Reset state when modal closes
       setUrl('')
       setIsAdding(false)
       setShowAdvanced(false)
       setMetadata(null)
       lastFetchedUrlRef.current = ''
+      settingsLoadedRef.current = false
+    }
+  }, [isOpen])
+
+  // Mark settings as loaded when user changes preset
+  useEffect(() => {
+    if (isOpen) {
+      settingsLoadedRef.current = true
+      // Save preferences
+      window.api.updateSettings({
+        lastPreset: selectedPreset,
+        downloadSubtitles: downloadSubtitles
+      })
     }
   }, [isOpen, selectedPreset, downloadSubtitles])
 

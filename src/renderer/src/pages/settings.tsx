@@ -373,94 +373,112 @@ export default function SettingsPage(): React.JSX.Element {
 
             {/* Dependencies */}
             <section className="bg-card/30 border border-border-glass rounded-lg p-6">
-              <h3 className="text-lg font-semibold mb-4 text-neon-blue flex items-center gap-2">
+              <h3 className="text-lg font-semibold mb-4 text-neon-blue">
                 Dependencies
-                <span className="text-xs font-normal text-text-dim bg-white/10 px-2 py-0.5 rounded">
-                  Required for downloading
-                </span>
               </h3>
 
-              {/* yt-dlp */}
-              <SettingsRow label="yt-dlp" description="Core download engine (auto-updated)">
-                <div className="flex items-center gap-3">
-                  {depStatus?.ytDlp.installed ? (
-                    <>
-                      <span className="text-sm text-neon-green flex items-center gap-1">
-                        <CheckCircleIcon className="w-4 h-4" />v{depStatus.ytDlp.version}
-                      </span>
-                      {depStatus.ytDlp.updateAvailable && (
-                        <span className="text-xs text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded">
-                          v{depStatus.ytDlp.latestVersion} available
+              <div className="space-y-3">
+                {/* yt-dlp Card */}
+                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-neon-blue/20 flex items-center justify-center">
+                      <span className="text-lg">📥</span>
+                    </div>
+                    <div>
+                      <div className="font-medium text-sm">yt-dlp</div>
+                      <div className="text-xs text-text-dim">Download engine</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {depStatus?.ytDlp.installed ? (
+                      <>
+                        <span className="text-xs text-neon-green bg-neon-green/10 px-2 py-1 rounded">
+                          v{depStatus.ytDlp.version}
                         </span>
-                      )}
-                      {isUpdatingYtDlp ? (
-                        <div className="flex items-center gap-2">
-                          <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-neon-blue transition-all"
-                              style={{ width: `${ytDlpUpdateProgress}%` }}
-                            />
+                        {isUpdatingYtDlp ? (
+                          <div className="flex items-center gap-2 min-w-[120px]">
+                            <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-neon-blue transition-all"
+                                style={{ width: `${ytDlpUpdateProgress}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-text-dim w-8">{ytDlpUpdateProgress}%</span>
                           </div>
-                          <span className="text-xs text-text-dim">{ytDlpUpdateProgress}%</span>
-                        </div>
-                      ) : (
-                        <>
+                        ) : depStatus.ytDlp.updateAvailable ? (
+                          <button
+                            onClick={handleUpdateYtDlp}
+                            className="tool-btn primary text-xs px-3 py-1.5"
+                          >
+                            Update to v{depStatus.ytDlp.latestVersion}
+                          </button>
+                        ) : (
                           <button
                             onClick={handleCheckYtDlpUpdate}
                             disabled={isCheckingYtDlp}
-                            className="tool-btn text-xs px-3 py-1"
+                            className="tool-btn text-xs px-3 py-1.5"
                           >
-                            {isCheckingYtDlp ? 'Checking...' : 'Check for Updates'}
+                            {isCheckingYtDlp ? '...' : 'Check'}
                           </button>
-                          {depStatus.ytDlp.updateAvailable && (
-                            <button
-                              onClick={handleUpdateYtDlp}
-                              className="tool-btn primary text-xs px-3 py-1"
-                            >
-                              Update Now
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </>
-                  ) : (
-                    <span className="text-sm text-red-400">Not installed</span>
-                  )}
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-xs text-red-400">Not installed</span>
+                    )}
+                  </div>
                 </div>
-              </SettingsRow>
 
-              {/* ffmpeg */}
-              <SettingsRow label="FFmpeg" description="Media processing (bundled with app)">
-                <div className="flex items-center gap-3">
-                  {depStatus?.ffmpeg.installed ? (
-                    <>
-                      <span className="text-sm text-neon-green flex items-center gap-1">
-                        <CheckCircleIcon className="w-4 h-4" />v
-                        {depStatus.ffmpeg.version?.split('-')[0] || 'unknown'}
-                      </span>
-                      {depStatus.ffmpeg.updateAvailable && (
-                        <span className="text-xs text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded">
-                          v{depStatus.ffmpeg.latestVersion} available
+                {/* FFmpeg Card */}
+                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                      <span className="text-lg">🎬</span>
+                    </div>
+                    <div>
+                      <div className="font-medium text-sm">FFmpeg</div>
+                      <div className="text-xs text-text-dim">Media processing</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {depStatus?.ffmpeg.installed ? (
+                      <>
+                        <span className="text-xs text-neon-green bg-neon-green/10 px-2 py-1 rounded">
+                          v{depStatus.ffmpeg.version?.split('-')[0] || 'unknown'}
                         </span>
-                      )}
-                      <button
-                        onClick={handleCheckFfmpegUpdate}
-                        disabled={isCheckingFfmpeg}
-                        className="tool-btn text-xs px-3 py-1"
-                      >
-                        {isCheckingFfmpeg ? 'Checking...' : 'Check for Updates'}
-                      </button>
-                      {depStatus.ffmpeg.updateAvailable && (
-                        <span className="text-xs text-text-dim bg-white/5 px-2 py-0.5 rounded">
-                          Manual update required
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    <span className="text-sm text-red-400">Not found</span>
-                  )}
+                        {depStatus.ffmpeg.updateAvailable ? (
+                          <>
+                            <span className="text-xs text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded">
+                              v{depStatus.ffmpeg.latestVersion}
+                            </span>
+                            <a
+                              href="https://ffmpeg.org/download.html"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="tool-btn primary text-xs px-3 py-1.5"
+                            >
+                              Download
+                            </a>
+                          </>
+                        ) : (
+                          <button
+                            onClick={handleCheckFfmpegUpdate}
+                            disabled={isCheckingFfmpeg}
+                            className="tool-btn text-xs px-3 py-1.5"
+                          >
+                            {isCheckingFfmpeg ? '...' : 'Check'}
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-xs text-red-400">Not found</span>
+                    )}
+                  </div>
                 </div>
-              </SettingsRow>
+              </div>
+
+              <p className="text-xs text-text-dim mt-3">
+                yt-dlp updates automatically. FFmpeg is bundled with the app.
+              </p>
             </section>
           </div>
         </div>

@@ -197,21 +197,21 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
   const formatSelection = download.formatId ? download.formatId : settings.defaultFormat
 
   // Detect if this is an audio-only download
+  // Only true if it has audio AND does NOT have video
   const isAudioOnly =
-    formatSelection.includes('bestaudio') ||
-    formatSelection.includes('audio') ||
-    formatSelection === 'mp3' ||
-    formatSelection === 'm4a' ||
-    formatSelection === 'opus' ||
-    formatSelection === 'wav'
+    (formatSelection.includes('bestaudio') || formatSelection.includes('audio')) &&
+    !formatSelection.includes('bestvideo') &&
+    !formatSelection.includes('video')
 
   const ytDlpPath = settings.ytDlpPath || getYtDlpPath()
 
   const args = [
+    '--newline', // Force newline output for progress
     '--progress',
     '--progress-template',
-    '%(progress)j',
+    'download:{"status":"downloading","downloaded_bytes":%(progress.downloaded_bytes)j,"total_bytes":%(progress.total_bytes|progress.total_bytes_estimate)j,"speed":%(progress.speed)j,"eta":%(progress.eta)j,"percent":"%(progress._percent_str)s"}',
     '--no-warnings',
+    '--no-write-thumbnail', // Explicitly prevent thumbnail downloads
     '-f',
     formatSelection,
     '--paths',
@@ -220,13 +220,28 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
     outputTemplate,
     '--no-simulate',
     '--print',
-    '{"title": %(title)j, "thumbnail": %(thumbnail)j, "filesize": %(filesize,filesize_approx)j, "filename": %(filename)j, "_filename": %(_filename)j}',
+    'before_dl:{"title":%(title)j,"thumbnail":%(thumbnail)j,"filesize":%(filesize,filesize_approx)j,"filename":%(filename)j}',
     download.url
   ]
 
-  // For audio-only downloads, embed thumbnail and metadata
+  // Set ffmpeg path - use settings or bundled ffmpeg
+  // Note: --ffmpeg-location expects the DIRECTORY containing ffmpeg and ffprobe
+  const ffmpegPath = settings.ffmpegPath || getFfmpegPath()
+  const ffmpegDir = path.dirname(ffmpegPath)
+
+  // Check if ffprobe exists (required for --embed-thumbnail)
+  const ffprobePath = path.join(ffmpegDir, process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe')
+  const ffprobeExists = fs.existsSync(ffprobePath)
+
+  // For audio-only downloads, embed thumbnail and metadata (if ffprobe is available)
   if (isAudioOnly) {
-    args.unshift('--embed-thumbnail', '--add-metadata', '--convert-thumbnails', 'jpg')
+    if (ffprobeExists) {
+      args.unshift('--embed-thumbnail', '--add-metadata', '--convert-thumbnails', 'jpg')
+    } else {
+      // ffprobe not available - just add metadata without embedding thumbnail
+      console.warn('[Download] ffprobe not found, skipping thumbnail embedding for audio')
+      args.unshift('--add-metadata')
+    }
   } else {
     // For video, use mp4 merge format
     args.splice(args.indexOf('--no-simulate'), 0, '--merge-output-format', 'mp4')
@@ -238,11 +253,7 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
   if (settings.speedLimit && settings.speedLimit > 0) {
     args.push('--limit-rate', `${settings.speedLimit}K`)
   }
-
-  // Set ffmpeg path - use settings or bundled ffmpeg
-  const ffmpegPath = settings.ffmpegPath || getFfmpegPath()
-
-  args.push('--ffmpeg-location', ffmpegPath)
+  args.push('--ffmpeg-location', ffmpegDir)
 
   let fullStderr = ''
 
@@ -275,7 +286,15 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
         if (!line.trim()) continue
 
         try {
-          const trimmedLine = line.trim()
+          let trimmedLine = line.trim()
+
+          // Remove our custom prefixes from --print and --progress-template
+          if (trimmedLine.startsWith('before_dl:')) {
+            trimmedLine = trimmedLine.substring('before_dl:'.length)
+          } else if (trimmedLine.startsWith('download:')) {
+            trimmedLine = trimmedLine.substring('download:'.length)
+          }
+
           const jsonStartIndex = trimmedLine.indexOf('{')
           if (jsonStartIndex === -1) continue
 
@@ -291,17 +310,26 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
 
           if (isProgress) {
             // Treat as Progress JSON (from --progress-template)
+            // Parse percent from string like "50.5%"
+            const percentValue = output.percent
+              ? parseFloat(output.percent.toString().replace('%', '').trim())
+              : 0
+
+            // Speed/eta come as numbers or null (using %j)
+            const speedNum = output.speed && typeof output.speed === 'number' ? output.speed : 0
+            const etaNum = output.eta && typeof output.eta === 'number' ? output.eta : 0
+
             const updateData: Partial<Download> = {
-              progress: output.percent ? parseFloat(output.percent.toString().replace('%', '')) : 0,
-              speed: output.speed_str || '0',
-              eta: output.eta_str || '0',
+              progress: percentValue,
+              speed: speedNum > 0 ? `${(speedNum / 1024 / 1024).toFixed(2)} MB/s` : '0',
+              eta: etaNum > 0 ? `${Math.floor(etaNum / 60)}m ${etaNum % 60}s` : '0',
               downloadedSizeInBytes: output.downloaded_bytes || 0,
               status: 'downloading',
-              speedValue: output.speed || 0
+              speedValue: speedNum
             }
 
-            if (output.total_bytes || output.total_bytes_estimate) {
-              updateData.totalSizeInBytes = output.total_bytes || output.total_bytes_estimate
+            if (output.total_bytes) {
+              updateData.totalSizeInBytes = output.total_bytes
             }
 
             // Also capture filename from progress if available, just in case

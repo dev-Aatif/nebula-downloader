@@ -8,31 +8,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-#### Update Notifications
-
-- **Startup Update Check**: App now checks for yt-dlp and FFmpeg updates at launch
-- **System Notification**: Users are notified via system notification when updates are available
-- **Settings Update UI**: FFmpeg now shows available version when update is detected
+- **Startup Update Check**: App checks for yt-dlp and FFmpeg updates at launch with system notification
+- **Simplified Settings UI**: New card-based layout for dependencies with one-click updates
+- **Thumbnail Display**: Video thumbnails now shown in download cards
 
 ### Fixed
 
-#### Download Progress
-
-- **Dynamic Progress**: Fixed download progress stuck at 0% - now updates dynamically during download
-- **Speed Display**: Fixed speed showing 0 B/s - now displays actual download speed
-
-#### Thumbnail Handling
-
-- **No Separate Thumbnails**: Video downloads no longer create separate thumbnail files
-- **Audio Metadata Embedding**: Audio downloads now embed thumbnail and metadata directly in the file
-  - Uses `--embed-thumbnail` flag to embed album art in audio files
-  - Uses `--add-metadata` to include track information
-  - Thumbnails are converted to JPEG for maximum compatibility
+- **Audio Preset Selection**: Fixed critical bug where audio preset would download video instead
+  - `isAudioOnly` detection now correctly excludes video+audio formats
+  - Preset selection no longer gets overwritten by async settings load
+- **Download Progress**: Fixed progress stuck at 0% - now shows real-time progress with `--newline` flag
+- **JSON Parse Errors**: Fixed "Unexpected token 'N'" errors by using `%j` format for numeric fields
+  - Progress updates now work reliably throughout download
+- **Speed Display**: Fixed speed stuck at 0 B/s - now formats speed from yt-dlp output correctly
+- **No Separate Thumbnails**: Added `--no-write-thumbnail` to prevent extra thumbnail files
+- **Audio Metadata**: Audio downloads embed thumbnail/metadata when ffprobe is available
+- **ffprobe Error**: Fixed "ffprobe not found" error by correctly passing ffmpeg directory path
+- **Thumbnail Preview**: Completed downloads now show thumbnail preview instead of placeholder
 
 ### Changed
 
-- Download worker now conditionally applies `--merge-output-format mp4` only for video downloads
-- Audio-only downloads use embedded metadata instead of separate files
+- Progress template now outputs structured JSON with null-safe parsing for reliable updates
+- Dependency cards in Settings use cleaner, more compact design
+- Download size display shows "Downloaded / Total" format for clarity
 
 ---
 

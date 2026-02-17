@@ -111,10 +111,10 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
         title={`Remaining: ${formatBytes(remainingBytes)}`}
       >
         {status === 'downloading'
-          ? `${speedValue && speedValue > 0 ? formatBytes(speedValue) + '/s' : '0 B/s'} / ${formatBytes(totalSizeInBytes)}`
+          ? `${formatBytes(downloadedSizeInBytes)} / ${formatBytes(totalSizeInBytes)}`
           : status === 'completed'
-          ? formatBytes(totalSizeInBytes)
-          : `${formatBytes(downloadedSizeInBytes)} / ${formatBytes(totalSizeInBytes)}`}
+            ? formatBytes(totalSizeInBytes)
+            : `${formatBytes(downloadedSizeInBytes)} / ${formatBytes(totalSizeInBytes)}`}
       </div>
       <div className="justify-center text-[11px] opacity-60">
         {new Date(download.createdAt).toLocaleDateString()}
