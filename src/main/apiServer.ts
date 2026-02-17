@@ -180,7 +180,23 @@ function handleRequest(
   mainWindow: electron.BrowserWindow | null
 ): void {
   // Set CORS headers for browser extension access
-  res.setHeader('Access-Control-Allow-Origin', '*')
+  // CORS Security: Strict Origin Check
+  const origin = req.headers.origin
+  const allowedOrigins = [
+    'chrome-extension://' // Add your specific extension ID here if known, e.g. 'chrome-extension://abcdef...'
+    // 'moz-extension://' // For Firefox
+  ]
+  
+  // Allow requests from allowed origins or empty origin (local tools/curl)
+  // We strictly block random websites (e.g. evil.com)
+  const isAllowed = !origin || allowedOrigins.some(allowed => origin.startsWith(allowed)) || origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')
+
+  if (isAllowed && origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin)
+  }
+  
+  // Do NOT set Allow-Origin if not allowed. Browser will block the response.
+  
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
   res.setHeader('Content-Type', 'application/json')
@@ -366,10 +382,10 @@ export function startApiServer(
       reject(err)
     })
 
-    server.listen(port, '0.0.0.0', () => {
+    server.listen(port, '127.0.0.1', () => {
       isRunning = true
       console.log('='.repeat(60))
-      console.log(`[API Server] V2 - Listening on http://0.0.0.0:${port} (All Interfaces)`)
+      console.log(`[API Server] V2 - Listening on http://127.0.0.1:${port} (Localhost Only)`)
       console.log('[API Server] Ready for extension connections')
       console.log('='.repeat(60))
       resolve()

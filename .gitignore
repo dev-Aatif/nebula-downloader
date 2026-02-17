@@ -91,3 +91,8 @@ ffmpeg-linux.tar.xz
 
 # Helper scripts (development only)
 scripts/
+
+#Tests
+tests/adversarial/
+tests/
+

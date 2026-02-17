@@ -187,8 +187,15 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
     // Continue with download if check fails
   }
 
-  // Let yt-dlp handle filename sanitization for consistency
+  // Let yt-dlp handle filename sanitization for consistency, but we enforce specific restrictions via args
+  // AND we sanitize the title variable if we use it in custom logic, though here we rely on yt-dlp's template
+  // However, to be safe against 'title' containing path separators that yt-dlp might respect in some versions:
   const outputTemplate = '%(title)s.%(ext)s'
+  
+  // Security: Ensure yt-dlp doesn't write outside the download directory
+  // We add --restrict-filenames to force ASCII and no special chars
+  // We also manually check the title if possible, but yt-dlp template replacement happens inside yt-dlp.
+  // The best protection is --paths and --restrict-filenames.
 
   console.log(`[Download] Starting download for: "${download.title}"`)
   console.log(`[Download] Save location (paths): ${downloadsPath}`)
@@ -212,6 +219,7 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
     'download:{"status":"downloading","downloaded_bytes":%(progress.downloaded_bytes)j,"total_bytes":%(progress.total_bytes|progress.total_bytes_estimate)j,"speed":%(progress.speed)j,"eta":%(progress.eta)j,"percent":"%(progress._percent_str)s"}',
     '--no-warnings',
     '--no-write-thumbnail', // Explicitly prevent thumbnail downloads
+    '--restrict-filenames', // Security: Prevent path traversal and special chars
     '-f',
     formatSelection,
     '--paths',

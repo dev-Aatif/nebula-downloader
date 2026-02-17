@@ -150,6 +150,7 @@ if (process.contextIsolated) {
     console.error(error)
   }
 } else {
-  // @ts-ignore (define in dts)
-  window.api = api
+  // Fallback shouldn't be reached if we enforce contextIsolation: true
+  // But strictly, we should NOT expose it directly to window if isolation is missing for security
+  console.error('Electron Security Warning: Context Isolation is disabled.')
 }

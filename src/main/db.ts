@@ -3,6 +3,7 @@ import path from 'path'
 import { Low } from 'lowdb'
 import { JSONFile } from 'lowdb/node'
 import { Download, Settings } from './types'
+import { Mutex } from './mutex'
 
 type Schema = {
   downloads: Download[]
@@ -12,6 +13,7 @@ type Schema = {
 class DB {
   private static instance: DB
   private db: Low<Schema> | null = null
+  private mutex = new Mutex()
 
   private constructor() {
     // Constructor is now empty
@@ -62,34 +64,42 @@ class DB {
   }
 
   public async addDownload(download: Download): Promise<void> {
-    const db = this.assertDbReady()
-    db.data?.downloads.push(download)
-    await db.write()
+    await this.mutex.run(async () => {
+      const db = this.assertDbReady()
+      db.data?.downloads.push(download)
+      await db.write()
+    })
   }
 
   public async updateDownload(id: string, updates: Partial<Download>): Promise<void> {
-    const db = this.assertDbReady()
-    const download = db.data?.downloads.find((d) => d.id === id)
-    if (download) {
-      Object.assign(download, { ...updates, updatedAt: new Date() })
-      await db.write()
-    }
+    await this.mutex.run(async () => {
+      const db = this.assertDbReady()
+      const download = db.data?.downloads.find((d) => d.id === id)
+      if (download) {
+        Object.assign(download, { ...updates, updatedAt: new Date() })
+        await db.write()
+      }
+    })
   }
 
   public async updateDownloads(downloads: Download[]): Promise<void> {
-    const db = this.assertDbReady()
-    if (db.data) {
-      db.data.downloads = downloads
-      await db.write()
-    }
+    await this.mutex.run(async () => {
+      const db = this.assertDbReady()
+      if (db.data) {
+        db.data.downloads = downloads
+        await db.write()
+      }
+    })
   }
 
   public async removeDownload(id: string): Promise<void> {
-    const db = this.assertDbReady()
-    if (db.data) {
-      db.data.downloads = db.data.downloads.filter((d) => d.id !== id)
-      await db.write()
-    }
+    await this.mutex.run(async () => {
+      const db = this.assertDbReady()
+      if (db.data) {
+        db.data.downloads = db.data.downloads.filter((d) => d.id !== id)
+        await db.write()
+      }
+    })
   }
 
   public getDownload(id: string): Download | undefined {
@@ -112,11 +122,13 @@ class DB {
   }
 
   public async updateSettings(updates: Partial<Settings>): Promise<void> {
-    const db = this.assertDbReady()
-    if (db.data) {
-      db.data.settings = { ...db.data.settings, ...updates }
-      await db.write()
-    }
+    await this.mutex.run(async () => {
+      const db = this.assertDbReady()
+      if (db.data) {
+        db.data.settings = { ...db.data.settings, ...updates }
+        await db.write()
+      }
+    })
   }
 
   public async loadAndResumeDownloads(): Promise<Download[]> {
