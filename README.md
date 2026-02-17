@@ -42,7 +42,7 @@
 
 ---
 
-## 🚀 Getting Started (For Developers)
+## 🚀 Getting Started
 
 ### Prerequisites
 
