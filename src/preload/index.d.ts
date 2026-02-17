@@ -26,7 +26,11 @@ declare global {
     electron: ElectronAPI
     api: {
       getDownloads: () => Promise<Download[]>
-      addDownload: (url: string, formatId?: string) => void
+      addDownload: (
+        url: string,
+        formatId?: string,
+        options?: { isAudioExtract?: boolean; audioFormat?: string; formatOption?: string }
+      ) => void
       pauseDownload: (id: string) => void
       resumeDownload: (id: string) => void
       deleteDownload: (id: string) => void

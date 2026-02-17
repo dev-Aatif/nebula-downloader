@@ -36,6 +36,7 @@ export default function SettingsPage(): React.JSX.Element {
   })
   const [saving, setSaving] = useState(false)
   const [showToast, setShowToast] = useState(false)
+  const [toastMessage, setToastMessage] = useState<string>('')
   const [formatMode, setFormatMode] = useState('custom')
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
@@ -48,6 +49,13 @@ export default function SettingsPage(): React.JSX.Element {
   const [isUpdatingYtDlp, setIsUpdatingYtDlp] = useState(false)
   const [ytDlpUpdateProgress, setYtDlpUpdateProgress] = useState(0)
 
+  // Helper for notifications
+  const showNotification = (msg: string): void => {
+    setToastMessage(msg)
+    setShowToast(true)
+    setTimeout(() => setShowToast(false), 3000)
+  }
+
   // Load dependency status on mount
   useEffect(() => {
     window.api.getFullDependencyStatus().then(setDepStatus)
@@ -59,6 +67,7 @@ export default function SettingsPage(): React.JSX.Element {
         setTimeout(() => {
           setIsUpdatingYtDlp(false)
           window.api.getFullDependencyStatus().then(setDepStatus)
+          showNotification('Update complete')
         }, 500)
       }
     })
@@ -74,17 +83,23 @@ export default function SettingsPage(): React.JSX.Element {
       setDepStatus((prev) =>
         prev
           ? {
-              ...prev,
-              ytDlp: {
-                ...prev.ytDlp,
-                updateAvailable: result.updateAvailable,
-                latestVersion: result.latestVersion
-              }
+            ...prev,
+            ytDlp: {
+              ...prev.ytDlp,
+              updateAvailable: result.updateAvailable,
+              latestVersion: result.latestVersion
             }
+          }
           : null
       )
+      if (result.updateAvailable) {
+        showNotification(`Update available: v${result.latestVersion}`)
+      } else {
+        showNotification('yt-dlp is up to date')
+      }
     } catch (err) {
       console.error('Failed to check yt-dlp update:', err)
+      showNotification('Check failed')
     } finally {
       setIsCheckingYtDlp(false)
     }
@@ -97,17 +112,23 @@ export default function SettingsPage(): React.JSX.Element {
       setDepStatus((prev) =>
         prev
           ? {
-              ...prev,
-              ffmpeg: {
-                ...prev.ffmpeg,
-                updateAvailable: result.updateAvailable,
-                latestVersion: result.latestVersion
-              }
+            ...prev,
+            ffmpeg: {
+              ...prev.ffmpeg,
+              updateAvailable: result.updateAvailable,
+              latestVersion: result.latestVersion
             }
+          }
           : null
       )
+      if (result.updateAvailable) {
+        showNotification(`Update available: v${result.latestVersion}`)
+      } else {
+        showNotification('FFmpeg is up to date')
+      }
     } catch (err) {
       console.error('Failed to check ffmpeg update:', err)
+      showNotification('Check failed')
     } finally {
       setIsCheckingFfmpeg(false)
     }
@@ -121,6 +142,7 @@ export default function SettingsPage(): React.JSX.Element {
     } catch (err) {
       console.error('Failed to update yt-dlp:', err)
       setIsUpdatingYtDlp(false)
+      showNotification('Update failed')
     }
   }
 
@@ -150,9 +172,8 @@ export default function SettingsPage(): React.JSX.Element {
       setSaving(true)
       try {
         await window.api.updateSettings(settings)
-        setShowToast(true)
+        showNotification('Settings saved')
         setHasChanges(false)
-        setTimeout(() => setShowToast(false), 2000)
       } catch (error) {
         console.error('Failed to auto-save settings:', error)
       } finally {
@@ -322,16 +343,14 @@ export default function SettingsPage(): React.JSX.Element {
                   </span>
                 </h3>
                 <ChevronDownIcon
-                  className={`w-5 h-5 text-text-dim transition-transform duration-200 ${
-                    isAdvancedOpen ? 'rotate-180' : ''
-                  }`}
+                  className={`w-5 h-5 text-text-dim transition-transform duration-200 ${isAdvancedOpen ? 'rotate-180' : ''
+                    }`}
                 />
               </button>
 
               <div
-                className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                  isAdvancedOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
-                }`}
+                className={`transition-all duration-300 ease-in-out overflow-hidden ${isAdvancedOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+                  }`}
               >
                 <div className="p-6 pt-0 space-y-4">
                   <SettingsRow
@@ -509,7 +528,7 @@ export default function SettingsPage(): React.JSX.Element {
           )}
           {!saving && showToast && (
             <span className="text-neon-green flex items-center gap-2 animate-in fade-in">
-              <CheckCircleIcon className="w-4 h-4" /> Saved
+              <CheckCircleIcon className="w-4 h-4" /> {toastMessage || 'Saved'}
             </span>
           )}
           {!saving && !showToast && hasChanges && (

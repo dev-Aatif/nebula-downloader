@@ -33,8 +33,11 @@ type UpdateCheckResult = {
 const api = {
   getDownloads: (): Promise<Download[]> => ipcRenderer.invoke('get-downloads'),
   getCompletedDownloads: (): Promise<Download[]> => ipcRenderer.invoke('get-completed-downloads'),
-  addDownload: (url: string, formatId?: string): void =>
-    ipcRenderer.send('add-download', url, formatId),
+  addDownload: (
+    url: string,
+    formatId?: string,
+    options?: { isAudioExtract?: boolean; audioFormat?: string; formatOption?: string }
+  ): void => ipcRenderer.send('add-download', url, formatId, options),
   pauseDownload: (id: string): void => ipcRenderer.send('pause-download', id),
   resumeDownload: (id: string): void => ipcRenderer.send('resume-download', id),
   deleteDownload: (id: string): void => ipcRenderer.send('delete-download', id),

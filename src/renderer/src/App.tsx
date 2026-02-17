@@ -50,6 +50,7 @@ const pages: Record<
     setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>
     onMultiSelect: (id: string) => void
     onSelectAll?: () => void
+    viewMode?: 'normal' | 'simple'
   }>
 > = {
   Downloads,
@@ -81,12 +82,20 @@ const SidebarItem: React.FC<{
   isActive: boolean
   onClick: () => void
   count?: number
-}> = ({ icon, label, isActive, onClick, count }) => (
-  <div className={`sidebar-item ${isActive ? 'active' : ''}`} onClick={onClick}>
+  collapsed?: boolean
+}> = ({ icon, label, isActive, onClick, count, collapsed }) => (
+  <div
+    className={`sidebar-item ${isActive ? 'active' : ''} ${collapsed ? 'justify-center px-2' : ''}`}
+    onClick={onClick}
+    title={collapsed ? label : undefined}
+  >
     {icon}
-    <span className="flex-1">{label}</span>
-    {count !== undefined && count > 0 && (
+    {!collapsed && <span className="flex-1 animate-in fade-in slide-in-from-left-2 duration-200">{label}</span>}
+    {!collapsed && count !== undefined && count > 0 && (
       <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded-full">{count}</span>
+    )}
+    {collapsed && count !== undefined && count > 0 && (
+      <div className="absolute top-2 right-2 w-2 h-2 bg-neon-blue rounded-full"></div>
     )}
   </div>
 )
@@ -100,6 +109,8 @@ function App(): React.ReactElement {
   const [downloads, setDownloads] = useState<Download[]>([])
   const [activeDownloadId, setActiveDownloadId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [viewMode, setViewMode] = useState<'normal' | 'simple'>('normal')
 
   // Selection handlers
   const handleToggleSelect = useCallback((id: string): void => {
@@ -263,10 +274,10 @@ function App(): React.ReactElement {
         prev.map((d) =>
           d.id === id
             ? {
-                ...d,
-                status: 'error',
-                errorLogs: d.errorLogs ? [...d.errorLogs, error] : [error]
-              }
+              ...d,
+              status: 'error',
+              errorLogs: d.errorLogs ? [...d.errorLogs, error] : [error]
+            }
             : d
         )
       )
@@ -400,11 +411,7 @@ function App(): React.ReactElement {
     setAddDownloadModalOpen(true)
   }
 
-  const handleAddDownloadFromModal = (url: string): void => {
-    if (url) {
-      window.api.addDownload(url)
-    }
-  }
+
 
 
 
@@ -427,7 +434,25 @@ function App(): React.ReactElement {
   const cancelledCount = downloads.filter((d) => d.status === 'cancelled').length
 
   return (
-    <div className="flex flex-col h-screen bg-bg-deep text-text-main font-sans">
+    <div
+      className="flex flex-col h-screen bg-bg-deep text-text-main font-sans overflow-hidden"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drag Overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 z-50 bg-neon-blue/20 backdrop-blur-sm border-4 border-neon-blue border-dashed m-4 rounded-xl flex items-center justify-center animate-in fade-in cursor-copy pointer-events-none">
+          <div className="bg-bg-deep p-6 rounded-xl border border-neon-blue shadow-2xl flex flex-col items-center gap-4">
+            <div className="p-4 bg-neon-blue/20 rounded-full animate-bounce">
+              <DownloadIcon className="w-12 h-12 text-neon-blue" />
+            </div>
+            <h2 className="text-2xl font-bold text-white">Drop URL to Download</h2>
+            <p className="text-text-dim">Release to start adding this video</p>
+          </div>
+        </div>
+      )}
+
       {/* Offline Warning Banner */}
       {!isOnline && (
         <div className="bg-red-500/90 text-white px-4 py-2 text-center text-sm flex items-center justify-center gap-2">
@@ -439,7 +464,7 @@ function App(): React.ReactElement {
       {/* TOP BAR */}
       <div className="toolbar">
         <div className="app-brand flex items-center gap-3 pl-4">
-          <span className="text-2xl font-black tracking-[0.2em] uppercase" style={{ 
+          <span className="text-2xl font-black tracking-[0.2em] uppercase" style={{
             fontFamily: 'Orbitron, Inter, sans-serif',
             background: 'linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 50%, var(--neon-blue) 100%)',
             backgroundSize: '200% auto',
@@ -453,6 +478,17 @@ function App(): React.ReactElement {
         </div>
 
         <div className="tool-group">
+          {/* View Mode Toggle */}
+          <ToolbarButton
+            title={viewMode === 'normal' ? "Switch to Simple View" : "Switch to Detailed View"}
+            onClick={() => setViewMode(prev => prev === 'normal' ? 'simple' : 'normal')}
+            isActive={viewMode === 'simple'}
+          >
+            <ListIcon className="w-5 h-5" />
+          </ToolbarButton>
+
+          <div className="w-px h-6 bg-white/10 mx-2"></div>
+
           {selectedIds.size > 0 ? (
             <>
               <ToolbarButton title="Resume Selected" onClick={handleBulkResume}>
@@ -470,7 +506,7 @@ function App(): React.ReactElement {
               <ToolbarButton title="Pause All" onClick={() => window.api.pauseAllDownloads()}>
                 <PauseIcon className="w-5 h-5" />
               </ToolbarButton>
-              <ToolbarButton title="Delete All" onClick={() => {}}>
+              <ToolbarButton title="Delete All" onClick={() => { }}>
                 <TrashIcon className="w-5 h-5 opacity-50" />
               </ToolbarButton>
             </>
@@ -517,8 +553,20 @@ function App(): React.ReactElement {
 
       <div className="main-layout">
         {/* SIDEBAR */}
-        <div className="sidebar">
-          <div className="sidebar-label">Downloads</div>
+        <div className={`sidebar transition-all duration-300 ease-in-out flex flex-col border-r border-border-glass bg-bg-surface ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
+          {/* Collapse Toggle */}
+          <div className="p-4 flex justify-end">
+            <button
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="p-1.5 rounded-lg hover:bg-white/10 text-text-dim hover:text-white transition-colors"
+            >
+              <ListIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className={`sidebar-label ${isSidebarCollapsed ? 'text-center text-[10px]' : ''}`}>
+            {isSidebarCollapsed ? 'ALL' : 'Downloads'}
+          </div>
           <SidebarItem
             icon={<DownloadIcon />}
             label="All Downloads"
@@ -527,6 +575,7 @@ function App(): React.ReactElement {
               setActivePage('Downloads')
               setActiveFilter('All')
             }}
+            collapsed={isSidebarCollapsed}
           />
           <SidebarItem
             icon={<PlayIcon className="text-neon-blue" />}
@@ -537,6 +586,7 @@ function App(): React.ReactElement {
               setActiveFilter('Downloading')
             }}
             count={activeCount}
+            collapsed={isSidebarCollapsed}
           />
           <SidebarItem
             icon={<ListIcon className="text-text-dim" />}
@@ -547,6 +597,7 @@ function App(): React.ReactElement {
               setActiveFilter('Queued')
             }}
             count={queuedCount}
+            collapsed={isSidebarCollapsed}
           />
           <SidebarItem
             icon={<PauseIcon className="text-yellow-400" />}
@@ -557,6 +608,7 @@ function App(): React.ReactElement {
               setActiveFilter('Paused')
             }}
             count={pausedCount}
+            collapsed={isSidebarCollapsed}
           />
           <SidebarItem
             icon={<CheckCircleIcon className="text-neon-green" />}
@@ -567,6 +619,7 @@ function App(): React.ReactElement {
               setActiveFilter('Completed')
             }}
             count={completedCount}
+            collapsed={isSidebarCollapsed}
           />
           <SidebarItem
             icon={<AlertCircleIcon className="text-red-500" />}
@@ -577,6 +630,7 @@ function App(): React.ReactElement {
               setActiveFilter('Error')
             }}
             count={errorCount}
+            collapsed={isSidebarCollapsed}
           />
           <SidebarItem
             icon={<BanIcon className="text-text-dim" />}
@@ -587,14 +641,18 @@ function App(): React.ReactElement {
               setActiveFilter('Cancelled')
             }}
             count={cancelledCount}
+            collapsed={isSidebarCollapsed}
           />
 
-          <div className="sidebar-label">Organization</div>
+          <div className={`sidebar-label ${isSidebarCollapsed ? 'text-center text-[10px]' : ''}`}>
+            {isSidebarCollapsed ? 'ORG' : 'Organization'}
+          </div>
           <SidebarItem
             icon={<ClockIcon />}
             label="History"
             isActive={activePage === 'History'}
             onClick={() => setActivePage('History')}
+            collapsed={isSidebarCollapsed}
           />
 
           <div className="spacer"></div>
@@ -604,12 +662,14 @@ function App(): React.ReactElement {
             label="Support & Help"
             isActive={activePage === 'Help'}
             onClick={() => setActivePage('Help')}
+            collapsed={isSidebarCollapsed}
           />
           <SidebarItem
             icon={<SettingsIcon />}
             label="Settings"
             isActive={activePage === 'Settings'}
             onClick={() => setActivePage('Settings')}
+            collapsed={isSidebarCollapsed}
           />
         </div>
 
@@ -627,7 +687,8 @@ function App(): React.ReactElement {
               selectedIds={selectedIds}
               setSelectedIds={setSelectedIds}
               onMultiSelect={handleToggleSelect}
-              // onSelectAll is handled in the page component to access sorted/filtered list
+              viewMode={viewMode}
+            // onSelectAll is handled in the page component to access sorted/filtered list
             />
           </main>
 
@@ -655,8 +716,16 @@ function App(): React.ReactElement {
 
       <AddDownloadModal
         isOpen={isAddDownloadModalOpen}
-        onClose={() => setAddDownloadModalOpen(false)}
-        onAdd={handleAddDownloadFromModal}
+        onClose={() => {
+          setAddDownloadModalOpen(false)
+          setDroppedUrl('')
+        }}
+        initialUrl={droppedUrl}
+        onAdd={(url, formatId, options) => {
+          window.api.addDownload(url, formatId, options)
+          setAddDownloadModalOpen(false)
+          setDroppedUrl('')
+        }}
       />
 
       {/* Clipboard Detection Toast */}

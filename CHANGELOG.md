@@ -4,6 +4,30 @@ All notable changes to the Nebula Downloader project are documented in this file
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.4.0] - 2026-02-17
+
+### Added
+
+- **Format Selection Overhaul**: 
+  - New "Add Download" modal with tabs for Video and Audio.
+  - Granular control over resolution (up to 8K), container (mp4, mkv, webm), and audio bitrate.
+  - Dedicated "Extract Audio" mode with format selection (mp3, m4a, wav).
+- **Drag-and-Drop Support**: Drag URLs directly onto the application window to start downloads.
+- **Responsive Sidebar**: Collapsible sidebar with icon-only mode for better space utilization.
+- **Readability Mode**: New "Simple View" option in the toolbar to compact the download list and hide non-essential details.
+- **Sidebar Toggle**: Toggle button to collapse/expand the sidebar.
+
+### Fixed
+
+- **Progress Parsing**: Fixed issues where progress would get stuck at 0% or show incorrect speeds.
+- **Thumbnail Embedding**: Improved metadata and thumbnail embedding reliability.
+- **Binary Updates**: Enhanced the update mechanism for yt-dlp and ffmpeg binaries.
+
+### Changed
+
+- **UI Refinement**: Polished standard view with better spacing and typography.
+- **App.tsx**: Refactored internal state management for better performance and maintainability.
+
 ## [1.3.0] - 2026-01-25
 
 ### Added

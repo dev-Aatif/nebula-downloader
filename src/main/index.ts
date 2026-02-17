@@ -448,31 +448,42 @@ electron.app.whenReady().then(async () => {
     }
   )
 
-  electron.ipcMain.on('add-download', async (_, url: string, formatId?: string) => {
-    const videoInfo = await getVideoInfo(url)
+  electron.ipcMain.on(
+    'add-download',
+    async (
+      _,
+      url: string,
+      formatId?: string,
+      options?: { isAudioExtract?: boolean; audioFormat?: string; formatOption?: string }
+    ) => {
+      const videoInfo = await getVideoInfo(url)
 
-    const newDownload: Download = {
-      id: crypto.randomUUID(),
-      url,
-      title: videoInfo?.title || 'Untitled',
-      status: 'queued',
-      progress: 0,
-      speed: '',
-      eta: '',
-      totalSizeInBytes: videoInfo?.totalSizeInBytes || 0,
-      downloadedSizeInBytes: 0,
-      outputPath: '',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      formatId: formatId
+      const newDownload: Download = {
+        id: crypto.randomUUID(),
+        url,
+        title: videoInfo?.title || 'Untitled',
+        status: 'queued',
+        progress: 0,
+        speed: '',
+        eta: '',
+        totalSizeInBytes: videoInfo?.totalSizeInBytes || 0,
+        downloadedSizeInBytes: 0,
+        outputPath: '',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        formatId: formatId,
+        isAudioExtract: options?.isAudioExtract,
+        audioFormat: options?.audioFormat,
+        formatOption: options?.formatOption
+      }
+      await db.addDownload(newDownload)
+      mainWindow?.webContents.send('download-added', newDownload)
+      console.log(`Added download ${newDownload.id} to the queue.`)
+      if (mainWindow) {
+        startDownload(newDownload, mainWindow)
+      }
     }
-    await db.addDownload(newDownload)
-    mainWindow?.webContents.send('download-added', newDownload)
-    console.log(`Added download ${newDownload.id} to the queue.`)
-    if (mainWindow) {
-      startDownload(newDownload, mainWindow)
-    }
-  })
+  )
 
   electron.ipcMain.on('pause-download', async (_, downloadId: string) => {
     const download = await db.getDownload(downloadId)

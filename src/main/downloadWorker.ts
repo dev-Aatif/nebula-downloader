@@ -203,12 +203,16 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
 
   const formatSelection = download.formatId ? download.formatId : settings.defaultFormat
 
-  // Detect if this is an audio-only download
-  // Only true if it has audio AND does NOT have video
-  const isAudioOnly =
-    (formatSelection.includes('bestaudio') || formatSelection.includes('audio')) &&
+  // Detect conversion requirements
+  const shouldExtractAudio = download.isAudioExtract
+  const audioFormat = download.audioFormat
+
+  // Logic to determine if this is effectively an audio-only download
+  // This helps us decide whether to convert thumbnail to JPG (embedded thumb issue in audio files)
+  const isAudioOnly = shouldExtractAudio ||
+    ((formatSelection.includes('bestaudio') || formatSelection.includes('audio')) &&
     !formatSelection.includes('bestvideo') &&
-    !formatSelection.includes('video')
+    !formatSelection.includes('video'))
 
   const ytDlpPath = settings.ytDlpPath || getYtDlpPath()
 
@@ -216,12 +220,23 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
     '--newline', // Force newline output for progress
     '--progress',
     '--progress-template',
-    'download:{"status":"downloading","downloaded_bytes":%(progress.downloaded_bytes)j,"total_bytes":%(progress.total_bytes|progress.total_bytes_estimate)j,"speed":%(progress.speed)j,"eta":%(progress.eta)j,"percent":"%(progress._percent_str)s"}',
+    'download:{"status":"downloading","downloaded_bytes":%(progress.downloaded_bytes)j,"total_bytes":%(progress.total_bytes|progress.total_bytes_estimate)j,"speed":%(progress.speed)j,"eta":%(progress.eta)j,"percent":"%(progress._percent_str)s","fragment_index":%(progress.fragment_index)d,"fragment_count":%(progress.fragment_count)d}',
     '--no-warnings',
-    '--no-write-thumbnail', // Explicitly prevent thumbnail downloads
+    '--no-write-thumbnail', // Explicitly prevent thumbnail downloads (we embed them)
     '--restrict-filenames', // Security: Prevent path traversal and special chars
     '-f',
-    formatSelection,
+    formatSelection
+  ]
+
+  // Add audio extraction flags if requested
+  if (shouldExtractAudio) {
+    args.push('-x')
+    if (audioFormat) {
+      args.push('--audio-format', audioFormat)
+    }
+  }
+
+  args.push(
     '--paths',
     downloadsPath,
     '--output',
@@ -230,7 +245,7 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
     '--print',
     'before_dl:{"title":%(title)j,"thumbnail":%(thumbnail)j,"filesize":%(filesize,filesize_approx)j,"filename":%(filename)j}',
     download.url
-  ]
+  )
 
   // Set ffmpeg path - use settings or bundled ffmpeg
   // Note: --ffmpeg-location expects the DIRECTORY containing ffmpeg and ffprobe
@@ -241,17 +256,29 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
   const ffprobePath = path.join(ffmpegDir, process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe')
   const ffprobeExists = fs.existsSync(ffprobePath)
 
-  // For audio-only downloads, embed thumbnail and metadata (if ffprobe is available)
-  if (isAudioOnly) {
-    if (ffprobeExists) {
-      args.unshift('--embed-thumbnail', '--add-metadata', '--convert-thumbnails', 'jpg')
-    } else {
-      // ffprobe not available - just add metadata without embedding thumbnail
-      console.warn('[Download] ffprobe not found, skipping thumbnail embedding for audio')
-      args.unshift('--add-metadata')
+  // Embed thumbnail and metadata if ffprobe is available (for both Video and Audio)
+  if (ffprobeExists) {
+    args.unshift('--embed-thumbnail', '--add-metadata')
+    
+    // For audio only, convert thumbnail to jpg to ensure compatibility
+    if (isAudioOnly) {
+       args.unshift('--convert-thumbnails', 'jpg')
     }
   } else {
-    // For video, use mp4 merge format
+    // ffprobe not available - just add metadata without embedded thumbnail
+    console.warn('[Download] ffprobe not found, skipping thumbnail embedding')
+    args.unshift('--add-metadata')
+  }
+
+  // Handle merge output format for video
+  // If we are extracting audio, we don't merge to mp4 (yt-dlp handles the conversion)
+  // If we are downloading video, we enforce mp4 merge unless it's already specific
+  if (!isAudioOnly && !shouldExtractAudio) {
+    // For video, use mp4 merge format to ensure video+audio streams are merged into mp4 container
+    // But check if user selected 'best' or 'bestvideo+bestaudio' which commonly needs merge
+    // If user explicitly selected a container in the format string (e.g. [ext=webm]), we might respect it,
+    // but the requirement was "ensure friendly format".
+    // Let's stick to mp4 merge for generic video downloads.
     args.splice(args.indexOf('--no-simulate'), 0, '--merge-output-format', 'mp4')
   }
 
@@ -329,10 +356,25 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
 
           if (isProgress) {
             // Treat as Progress JSON (from --progress-template)
-            // Parse percent from string like "50.5%"
-            const percentValue = output.percent
-              ? parseFloat(output.percent.toString().replace('%', '').trim())
-              : 0
+            
+            // Calculate percent manually if string is missing or NA
+            let percentValue = 0
+            if (output.percent && typeof output.percent === 'string') {
+               const p = parseFloat(output.percent.replace('%', '').trim())
+               if (!isNaN(p)) percentValue = p
+            }
+
+            // Fallback: Calculate from bytes if percent is 0/missing but we have total_bytes
+            if ((!percentValue || percentValue === 0) && output.downloaded_bytes && output.total_bytes) {
+               percentValue = (output.downloaded_bytes / output.total_bytes) * 100
+            }
+            // Fallback 2: Estimate from fragments if available
+            if ((!percentValue || percentValue === 0) && output.fragment_index && output.fragment_count) {
+               percentValue = (output.fragment_index / output.fragment_count) * 100
+            }
+
+            // Ensure percent is a number
+            if (isNaN(percentValue)) percentValue = 0
 
             // Speed/eta come as numbers or null (using %j)
             const speedNum = output.speed && typeof output.speed === 'number' ? output.speed : 0
@@ -340,8 +382,8 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
 
             const updateData: Partial<Download> = {
               progress: percentValue,
-              speed: speedNum > 0 ? `${(speedNum / 1024 / 1024).toFixed(2)} MB/s` : '0',
-              eta: etaNum > 0 ? `${Math.floor(etaNum / 60)}m ${etaNum % 60}s` : '0',
+              speed: speedNum > 0 ? `${(speedNum / 1024 / 1024).toFixed(2)} MB/s` : '0 MB/s',
+              eta: etaNum > 0 ? `${Math.floor(etaNum / 60)}m ${etaNum % 60}s` : 'Calculating...',
               downloadedSizeInBytes: output.downloaded_bytes || 0,
               status: 'downloading',
               speedValue: speedNum

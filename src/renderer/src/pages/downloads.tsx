@@ -44,7 +44,8 @@ export default function Downloads({
   setDownloads,
   selectedIds,
   setSelectedIds,
-  onMultiSelect
+  onMultiSelect,
+  viewMode = 'normal'
 }: {
   filter?: DownloadFilter
   setFilter?: React.Dispatch<React.SetStateAction<DownloadFilter>>
@@ -56,6 +57,7 @@ export default function Downloads({
   selectedIds: Set<string>
   setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>
   onMultiSelect: (id: string) => void
+  viewMode?: 'normal' | 'simple'
 }): React.ReactElement {
   const [showPlaylistModal, setShowPlaylistModal] = useState(false)
   const [currentPlaylistItems, setCurrentPlaylistItems] = useState<PlaylistItem[]>([])
@@ -72,7 +74,7 @@ export default function Downloads({
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {}
+    onConfirm: () => { }
   })
   const [contextMenu, setContextMenu] = useState<{
     x: number
@@ -280,6 +282,7 @@ export default function Downloads({
                 e.preventDefault()
                 setContextMenu({ x: e.clientX, y: e.clientY, download })
               }}
+              viewMode={viewMode}
             />
           ))
         )}
