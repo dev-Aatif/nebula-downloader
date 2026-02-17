@@ -264,6 +264,17 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
     console.log(`[Download] Args:`, JSON.stringify(args, null, 2))
 
     // Set cwd to downloads path to ensure all files (including thumbnails) go there
+    // RE-CHECK STATUS: user might have paused while we were awaiting DB/Disk checks
+    const freshStatus = await db.getDownload(download.id)
+    if (freshStatus?.status !== 'downloading' && freshStatus?.status !== 'queued') {
+      console.log(
+        `[Download] Aborted spawn for ${download.id} - Status changed to ${freshStatus?.status}`
+      )
+      activeDownloadCount-- // Decrement since we incremented before calling _runDownload
+      processQueue()
+      return
+    }
+
     const ytDlp = spawn(ytDlpPath, args, { cwd: downloadsPath })
     activeProcesses.set(download.id, ytDlp)
     db.updateDownload(download.id, { status: 'downloading' })

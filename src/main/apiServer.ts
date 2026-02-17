@@ -269,7 +269,7 @@ function handleRequest(
         }
 
         const videoUrl = data.url.trim()
-        const formatId = data.formatId as string | undefined
+        const formatId = typeof data.formatId === 'string' ? data.formatId : undefined
 
         console.log(`[API Server] Received download request for: ${videoUrl}`)
         if (formatId) {
