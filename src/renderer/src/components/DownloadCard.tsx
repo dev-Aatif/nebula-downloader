@@ -21,7 +21,7 @@ export default function DownloadCard({
   onOpenFile: (id: string) => void
   onShowInFolder: (id: string) => void
 }): React.JSX.Element {
-  const { title, thumbnail, status, progress, speed, eta, totalSizeInBytes, downloadedSizeInBytes } = download
+  const { thumbnail, status, progress, speed, eta, totalSizeInBytes, downloadedSizeInBytes } = download
   const [showErrorDetails, setShowErrorDetails] = useState(false) // State to toggle error details visibility
 
   const remainingSizeInBytes = totalSizeInBytes - downloadedSizeInBytes
