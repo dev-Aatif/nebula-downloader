@@ -1,6 +1,6 @@
 {
   "name": "nebula-downloader",
-  "version": "1.2.0",
+  "version": "1.1.0",
   "description": "Nebula Downloader - A powerful and sleek video downloader",
   "main": "./out/main/index.js",
   "author": "Nebula Team",

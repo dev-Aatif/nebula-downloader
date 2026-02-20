@@ -91,3 +91,5 @@ ffmpeg-linux.tar.xz
 
 # Helper scripts (development only)
 scripts/
+
+*.txt
