@@ -53,7 +53,6 @@ const DownloadDetails: React.FC<DownloadDetailsProps> = ({ download }) => {
                   src={download.thumbnail}
                   alt={title}
                   className="w-full h-full object-cover"
-                  loading="lazy"
                 />
               ) : (
                 <FileIcon className="w-12 h-12 text-neon-blue/40" />

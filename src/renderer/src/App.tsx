@@ -4,6 +4,7 @@ import Settings from './pages/settings'
 import History from './pages/History'
 import Help from './pages/Help'
 import AddDownloadModal from './components/AddDownloadModal'
+import Sidebar from './components/Sidebar'
 import DownloadDetails from './components/DownloadDetails'
 import ClipboardToast from './components/ClipboardToast'
 import DisclaimerModal from './components/DisclaimerModal'
@@ -16,14 +17,8 @@ import {
   PauseIcon,
   TrashIcon,
   SearchIcon,
-  SettingsIcon,
-  ClockIcon,
-  HelpIcon,
-  DownloadIcon,
-  CheckCircleIcon,
-  AlertCircleIcon,
   ListIcon,
-  BanIcon
+  DownloadIcon
 } from './components/icons'
 
 type Page = 'Downloads' | 'History' | 'Settings' | 'Help'
@@ -51,6 +46,7 @@ const pages: Record<
     onMultiSelect: (id: string) => void
     onSelectAll?: () => void
     viewMode?: 'normal' | 'simple'
+    isLoaded?: boolean
   }>
 > = {
   Downloads,
@@ -76,29 +72,7 @@ const ToolbarButton: React.FC<{
   </button>
 )
 
-const SidebarItem: React.FC<{
-  icon: React.ReactNode
-  label: string
-  isActive: boolean
-  onClick: () => void
-  count?: number
-  collapsed?: boolean
-}> = ({ icon, label, isActive, onClick, count, collapsed }) => (
-  <div
-    className={`sidebar-item ${isActive ? 'active' : ''} ${collapsed ? 'justify-center px-2' : ''}`}
-    onClick={onClick}
-    title={collapsed ? label : undefined}
-  >
-    {icon}
-    {!collapsed && <span className="flex-1 animate-in fade-in slide-in-from-left-2 duration-200">{label}</span>}
-    {!collapsed && count !== undefined && count > 0 && (
-      <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded-full">{count}</span>
-    )}
-    {collapsed && count !== undefined && count > 0 && (
-      <div className="absolute top-2 right-2 w-2 h-2 bg-neon-blue rounded-full"></div>
-    )}
-  </div>
-)
+
 
 function App(): React.ReactElement {
   const [activePage, setActivePage] = useState<Page>('Downloads')
@@ -111,6 +85,17 @@ function App(): React.ReactElement {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [viewMode, setViewMode] = useState<'normal' | 'simple'>('normal')
+  const [isDragging, setIsDragging] = useState(false)
+  const [droppedUrl, setDroppedUrl] = useState<string>('')
+  const [isDownloadsLoaded, setIsDownloadsLoaded] = useState(false)
+
+  // Refs for values used inside stable IPC listeners
+  const activeDownloadIdRef = useRef<string | null>(null)
+  const selectedDownloadIdRef = useRef<string | null>(null)
+
+  // Keep refs in sync with state
+  useEffect(() => { activeDownloadIdRef.current = activeDownloadId }, [activeDownloadId])
+  useEffect(() => { selectedDownloadIdRef.current = selectedDownloadId }, [selectedDownloadId])
 
   // Selection handlers
   const handleToggleSelect = useCallback((id: string): void => {
@@ -240,6 +225,7 @@ function App(): React.ReactElement {
   useEffect(() => {
     const unlistenLoaded = window.api.onDownloadsLoaded((loadedDownloads) => {
       setDownloads(loadedDownloads)
+      setIsDownloadsLoaded(true)
     })
 
     const unlistenAdded = window.api.onDownloadAdded((download) => {
@@ -251,8 +237,8 @@ function App(): React.ReactElement {
 
     const unlistenDeleted = window.api.onDownloadDeleted((id) => {
       setDownloads((prev) => prev.filter((d) => d.id !== id))
-      if (activeDownloadId === id) setActiveDownloadId(null)
-      if (selectedDownloadId === id) setSelectedDownloadId(null)
+      if (activeDownloadIdRef.current === id) setActiveDownloadId(null)
+      if (selectedDownloadIdRef.current === id) setSelectedDownloadId(null)
     })
 
     const unlistenProgress = window.api.onDownloadProgress((data) => {
@@ -266,7 +252,7 @@ function App(): React.ReactElement {
       setDownloads((prev) =>
         prev.map((d) => (d.id === id ? { ...d, status: 'completed', progress: 100 } : d))
       )
-      if (activeDownloadId === id) setActiveDownloadId(null)
+      if (activeDownloadIdRef.current === id) setActiveDownloadId(null)
     })
 
     const unlistenError = window.api.onDownloadError(({ id, error }) => {
@@ -296,6 +282,9 @@ function App(): React.ReactElement {
     })
     window.api.setTheme('system')
 
+    // Mark as loaded after a short timeout in case downloads-loaded event already fired
+    const loadedTimeout = setTimeout(() => setIsDownloadsLoaded(true), 3000)
+
     return () => {
       unlistenLoaded()
       unlistenAdded()
@@ -305,8 +294,9 @@ function App(): React.ReactElement {
       unlistenError()
       unlistenPaused()
       removeListener()
+      clearTimeout(loadedTimeout)
     }
-  }, [activeDownloadId, selectedDownloadId])
+  }, []) // Stable listeners — no dependencies that cause re-registration
 
   // Clipboard detection on focus
   const checkClipboard = useCallback(async () => {
@@ -419,6 +409,36 @@ function App(): React.ReactElement {
     setSearchTerm(e.target.value)
   }
 
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return
+    setIsDragging(false)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+
+    if (e.dataTransfer.items) {
+      for (let i = 0; i < e.dataTransfer.items.length; i++) {
+        if (e.dataTransfer.items[i].kind === 'string' && e.dataTransfer.items[i].type === 'text/plain') {
+          e.dataTransfer.items[i].getAsString((s) => {
+            if (s && (s.startsWith('http') || isValidVideoUrl(s))) {
+              setDroppedUrl(s)
+              setAddDownloadModalOpen(true)
+            }
+          })
+          return
+        }
+      }
+    }
+  }, [])
+
   const ActivePageComponent = pages[activePage]
   const displayedDownload =
     downloads.find((d) => d.id === (selectedDownloadId || activeDownloadId)) ||
@@ -478,16 +498,6 @@ function App(): React.ReactElement {
         </div>
 
         <div className="tool-group">
-          {/* View Mode Toggle */}
-          <ToolbarButton
-            title={viewMode === 'normal' ? "Switch to Simple View" : "Switch to Detailed View"}
-            onClick={() => setViewMode(prev => prev === 'normal' ? 'simple' : 'normal')}
-            isActive={viewMode === 'simple'}
-          >
-            <ListIcon className="w-5 h-5" />
-          </ToolbarButton>
-
-          <div className="w-px h-6 bg-white/10 mx-2"></div>
 
           {selectedIds.size > 0 ? (
             <>
@@ -553,125 +563,22 @@ function App(): React.ReactElement {
 
       <div className="main-layout">
         {/* SIDEBAR */}
-        <div className={`sidebar transition-all duration-300 ease-in-out flex flex-col border-r border-border-glass bg-bg-surface ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
-          {/* Collapse Toggle */}
-          <div className="p-4 flex justify-end">
-            <button
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className="p-1.5 rounded-lg hover:bg-white/10 text-text-dim hover:text-white transition-colors"
-            >
-              <ListIcon className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div className={`sidebar-label ${isSidebarCollapsed ? 'text-center text-[10px]' : ''}`}>
-            {isSidebarCollapsed ? 'ALL' : 'Downloads'}
-          </div>
-          <SidebarItem
-            icon={<DownloadIcon />}
-            label="All Downloads"
-            isActive={activePage === 'Downloads' && activeFilter === 'All'}
-            onClick={() => {
-              setActivePage('Downloads')
-              setActiveFilter('All')
-            }}
-            collapsed={isSidebarCollapsed}
-          />
-          <SidebarItem
-            icon={<PlayIcon className="text-neon-blue" />}
-            label="Downloading"
-            isActive={activePage === 'Downloads' && activeFilter === 'Downloading'}
-            onClick={() => {
-              setActivePage('Downloads')
-              setActiveFilter('Downloading')
-            }}
-            count={activeCount}
-            collapsed={isSidebarCollapsed}
-          />
-          <SidebarItem
-            icon={<ListIcon className="text-text-dim" />}
-            label="Queued"
-            isActive={activePage === 'Downloads' && activeFilter === 'Queued'}
-            onClick={() => {
-              setActivePage('Downloads')
-              setActiveFilter('Queued')
-            }}
-            count={queuedCount}
-            collapsed={isSidebarCollapsed}
-          />
-          <SidebarItem
-            icon={<PauseIcon className="text-yellow-400" />}
-            label="Paused"
-            isActive={activePage === 'Downloads' && activeFilter === 'Paused'}
-            onClick={() => {
-              setActivePage('Downloads')
-              setActiveFilter('Paused')
-            }}
-            count={pausedCount}
-            collapsed={isSidebarCollapsed}
-          />
-          <SidebarItem
-            icon={<CheckCircleIcon className="text-neon-green" />}
-            label="Completed"
-            isActive={activePage === 'Downloads' && activeFilter === 'Completed'}
-            onClick={() => {
-              setActivePage('Downloads')
-              setActiveFilter('Completed')
-            }}
-            count={completedCount}
-            collapsed={isSidebarCollapsed}
-          />
-          <SidebarItem
-            icon={<AlertCircleIcon className="text-red-500" />}
-            label="Errors"
-            isActive={activePage === 'Downloads' && activeFilter === 'Error'}
-            onClick={() => {
-              setActivePage('Downloads')
-              setActiveFilter('Error')
-            }}
-            count={errorCount}
-            collapsed={isSidebarCollapsed}
-          />
-          <SidebarItem
-            icon={<BanIcon className="text-text-dim" />}
-            label="Cancelled"
-            isActive={activePage === 'Downloads' && activeFilter === 'Cancelled'}
-            onClick={() => {
-              setActivePage('Downloads')
-              setActiveFilter('Cancelled')
-            }}
-            count={cancelledCount}
-            collapsed={isSidebarCollapsed}
-          />
-
-          <div className={`sidebar-label ${isSidebarCollapsed ? 'text-center text-[10px]' : ''}`}>
-            {isSidebarCollapsed ? 'ORG' : 'Organization'}
-          </div>
-          <SidebarItem
-            icon={<ClockIcon />}
-            label="History"
-            isActive={activePage === 'History'}
-            onClick={() => setActivePage('History')}
-            collapsed={isSidebarCollapsed}
-          />
-
-          <div className="spacer"></div>
-
-          <SidebarItem
-            icon={<HelpIcon />}
-            label="Support & Help"
-            isActive={activePage === 'Help'}
-            onClick={() => setActivePage('Help')}
-            collapsed={isSidebarCollapsed}
-          />
-          <SidebarItem
-            icon={<SettingsIcon />}
-            label="Settings"
-            isActive={activePage === 'Settings'}
-            onClick={() => setActivePage('Settings')}
-            collapsed={isSidebarCollapsed}
-          />
-        </div>
+        <Sidebar
+          activePage={activePage}
+          activeFilter={activeFilter}
+          setActivePage={setActivePage}
+          setActiveFilter={setActiveFilter}
+          isCollapsed={isSidebarCollapsed}
+          toggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          counts={{
+            active: activeCount,
+            queued: queuedCount,
+            paused: pausedCount,
+            completed: completedCount,
+            error: errorCount,
+            cancelled: cancelledCount
+          }}
+        />
 
         {/* MAIN CONTENT AREA */}
         <div className="flex-1 flex flex-col min-w-0">
@@ -688,6 +595,7 @@ function App(): React.ReactElement {
               setSelectedIds={setSelectedIds}
               onMultiSelect={handleToggleSelect}
               viewMode={viewMode}
+              isLoaded={isDownloadsLoaded}
             // onSelectAll is handled in the page component to access sorted/filtered list
             />
           </main>

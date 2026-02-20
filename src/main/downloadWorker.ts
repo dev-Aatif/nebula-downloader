@@ -220,9 +220,10 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
     '--newline', // Force newline output for progress
     '--progress',
     '--progress-template',
-    'download:{"status":"downloading","downloaded_bytes":%(progress.downloaded_bytes)j,"total_bytes":%(progress.total_bytes|progress.total_bytes_estimate)j,"speed":%(progress.speed)j,"eta":%(progress.eta)j,"percent":"%(progress._percent_str)s","fragment_index":%(progress.fragment_index)d,"fragment_count":%(progress.fragment_count)d}',
+    'download:{"status":"downloading","downloaded_bytes":%(progress.downloaded_bytes)j,"total_bytes":%(progress.total_bytes|progress.total_bytes_estimate)j,"speed":%(progress.speed)j,"eta":%(progress.eta)j,"percent":"%(progress._percent_str)s","fragment_index":%(progress.fragment_index|null)j,"fragment_count":%(progress.fragment_count|null)j}',
     '--no-warnings',
     '--no-write-thumbnail', // Explicitly prevent thumbnail downloads (we embed them)
+    '--no-part', // Write directly to final filename — prevents .part files leaking to wrong directory
     '--restrict-filenames', // Security: Prevent path traversal and special chars
     '-f',
     formatSelection
@@ -239,6 +240,8 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
   args.push(
     '--paths',
     downloadsPath,
+    '--paths',
+    `temp:${downloadsPath}`,
     '--output',
     outputTemplate,
     '--no-simulate',
@@ -288,7 +291,12 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
   if (settings.speedLimit && settings.speedLimit > 0) {
     args.push('--limit-rate', `${settings.speedLimit}K`)
   }
-  args.push('--ffmpeg-location', ffmpegDir)
+  // Only add --ffmpeg-location if the directory actually exists
+  if (fs.existsSync(ffmpegDir)) {
+    args.push('--ffmpeg-location', ffmpegDir)
+  } else {
+    console.warn(`[Download] FFmpeg directory not found: ${ffmpegDir}, skipping --ffmpeg-location`)
+  }
 
   let fullStderr = ''
 
@@ -310,7 +318,32 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
       return
     }
 
+    console.log(`[Download] Full command: ${ytDlpPath} ${args.join(' ')}`)
+
     const ytDlp = spawn(ytDlpPath, args, { cwd: downloadsPath })
+
+    // Handle spawn errors (e.g., binary not found, permission denied)
+    ytDlp.on('error', (err) => {
+      console.error(`[Download] Failed to spawn yt-dlp for ${download.id}:`, err)
+      activeProcesses.delete(download.id)
+      activeDownloadCount--
+      const errorLog: DownloadError = {
+        timestamp: new Date(),
+        message: `Failed to start yt-dlp: ${err.message}`,
+        type: 'process-spawn',
+        details: `Path: ${ytDlpPath}\nError: ${err.message}`
+      }
+      db.updateDownload(download.id, {
+        status: 'error',
+        errorLogs: [...(download.errorLogs || []), errorLog]
+      })
+      if (!window.isDestroyed()) {
+        window.webContents.send('download-error', { id: download.id, error: errorLog })
+        window.webContents.send('download-progress', { id: download.id, status: 'error' })
+      }
+      processQueue()
+    })
+
     activeProcesses.set(download.id, ytDlp)
     db.updateDownload(download.id, { status: 'downloading' })
     window.webContents.send('download-progress', { id: download.id, status: 'downloading' })
@@ -483,6 +516,12 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
       console.error(`[Download] yt-dlp STDERR for ${download.id}:`)
       console.error(errorString)
 
+      // Skip warnings — they go to stderr but aren't actual errors
+      if (errorString.trim().startsWith('WARNING:')) {
+        console.log(`[Download] Ignoring yt-dlp warning (not an error)`)
+        return
+      }
+
       if (window.isDestroyed()) return
 
       const currentDownload = await db.getDownload(download.id)
@@ -515,6 +554,23 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
       const currentDownload = await db.getDownload(download.id)
       if (currentDownload?.status === 'paused') {
         console.log(`Download for ${download.id} paused.`)
+      } else if (currentDownload?.status === 'cancelled') {
+        console.log(`Download for ${download.id} cancelled.`)
+      } else if (code === null) {
+        // Process was killed by a signal (SIGTERM/SIGKILL) — not a real error
+        console.log(`[Download] Process killed by signal for ${download.id}, treating as interrupted.`)
+        if (!window.isDestroyed()) {
+          await db.updateDownload(download.id, { status: 'error', errorLogs: [
+            ...(currentDownload?.errorLogs || []),
+            {
+              timestamp: new Date(),
+              message: 'Download was interrupted (process killed). Try downloading again.',
+              type: 'general' as const,
+              details: fullStderr || 'Process terminated by signal'
+            }
+          ]})
+          window.webContents.send('download-progress', { id: download.id, status: 'error' })
+        }
       } else if (code === 0) {
         if (window.isDestroyed()) return
 
@@ -536,6 +592,21 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
             if (fs.existsSync(potentialPath)) {
               finalPath = potentialPath
               console.log(`[Download]   ✓ File found via basename check: ${finalPath}`)
+            }
+          }
+        }
+
+        // Extension mismatch fix: yt-dlp captures pre-merge filename (e.g. .webm)
+        // but --merge-output-format mp4 changes the actual file to .mp4
+        if (finalPath && !fs.existsSync(finalPath)) {
+          const baseName = finalPath.replace(/\.[^.]+$/, '') // strip extension
+          const alternativeExts = ['.mp4', '.mkv', '.webm', '.mp3', '.m4a', '.opus', '.ogg', '.flac']
+          for (const ext of alternativeExts) {
+            const altPath = baseName + ext
+            if (fs.existsSync(altPath)) {
+              console.log(`[Download]   ✓ Found file with different extension: ${altPath} (was looking for ${path.basename(finalPath)})`)
+              finalPath = altPath
+              break
             }
           }
         }

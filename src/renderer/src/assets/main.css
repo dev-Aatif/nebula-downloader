@@ -44,6 +44,30 @@
     --neon-purple: #7c3aed; /* Darker purple */
     --neon-red: #dc2626; /* Darker red */
   }
+
+  /* Dark dropdowns for native select/option elements */
+  select {
+    background-color: #161b22;
+    color: var(--text-main);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+  }
+
+  option {
+    background-color: #161b22;
+    color: var(--text-main);
+  }
+
+  [data-theme='light'] select {
+    background-color: #ffffff;
+    color: var(--text-main);
+    border: 1px solid rgba(0, 0, 0, 0.15);
+  }
+
+  [data-theme='light'] option {
+    background-color: #ffffff;
+    color: var(--text-main);
+  }
 }
 @layer components {
   .toolbar {

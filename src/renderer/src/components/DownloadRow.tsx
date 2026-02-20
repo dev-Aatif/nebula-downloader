@@ -77,8 +77,8 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
       >
         <div
           className={`w-4 h-4 border rounded flex items-center justify-center transition-all ${isMultiSelected
-              ? 'border-neon-blue bg-neon-blue/20 shadow-[0_0_8px_rgba(0,243,255,0.3)]'
-              : 'border-white/20 bg-black/20 hover:border-white/40'
+            ? 'border-neon-blue bg-neon-blue/20 shadow-[0_0_8px_rgba(0,243,255,0.3)]'
+            : 'border-white/20 bg-black/20 hover:border-white/40'
             }`}
         >
           {isMultiSelected && <CheckIcon className="w-3 h-3 text-neon-blue" />}
@@ -110,8 +110,8 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
         </span>
       </div>
       <div
-        className="justify-center font-mono text-[11px]"
-        title={`Remaining: ${formatBytes(remainingBytes)}`}
+        className="justify-center font-mono text-[10px] truncate min-w-0"
+        title={`${formatBytes(downloadedSizeInBytes)} / ${formatBytes(totalSizeInBytes)} — Remaining: ${formatBytes(remainingBytes)}`}
       >
         {status === 'downloading'
           ? `${formatBytes(downloadedSizeInBytes)} / ${formatBytes(totalSizeInBytes)}`

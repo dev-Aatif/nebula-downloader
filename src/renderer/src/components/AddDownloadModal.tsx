@@ -60,6 +60,10 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({ isOpen, onClose, on
   const [isCheckingPlaylist, setIsCheckingPlaylist] = useState(false)
   const [showPlaylistModal, setShowPlaylistModal] = useState(false)
 
+  // Available resolutions from format fetch
+  const [availableResolutions, setAvailableResolutions] = useState<string[] | null>(null)
+  const [isFetchingFormats, setIsFetchingFormats] = useState(false)
+
   // Extract URLs from batch input
   const batchUrls = isBatchMode
     ? url
@@ -106,6 +110,44 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({ isOpen, onClose, on
       if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current)
     }
   }, [url, isUrlValid, fetchMetadata, isBatchMode])
+
+  // Fetch available formats when metadata is loaded
+  useEffect(() => {
+    if (!metadata || isBatchMode || !isUrlValid) {
+      setAvailableResolutions(null)
+      return
+    }
+
+    let cancelled = false
+    const fetchFormats = async (): Promise<void> => {
+      setIsFetchingFormats(true)
+      try {
+        const formats = await window.api.getFormats(url.trim())
+        if (cancelled) return
+        if (formats && formats.length > 0) {
+          // Extract unique available heights from video formats
+          const heights = new Set<string>()
+          formats.forEach((f) => {
+            if (f.vcodec && f.vcodec !== 'none' && f.resolution) {
+              const match = f.resolution.match(/(\d+)x(\d+)/)
+              if (match) {
+                heights.add(match[2]) // height
+              }
+            }
+          })
+          setAvailableResolutions(heights.size > 0 ? Array.from(heights) : null)
+        } else {
+          setAvailableResolutions(null)
+        }
+      } catch {
+        if (!cancelled) setAvailableResolutions(null)
+      } finally {
+        if (!cancelled) setIsFetchingFormats(false)
+      }
+    }
+    fetchFormats()
+    return () => { cancelled = true }
+  }, [metadata, url, isUrlValid, isBatchMode])
 
   // Initial focus and clipboard check
   useEffect(() => {
@@ -348,13 +390,23 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({ isOpen, onClose, on
           {activeTab === 'video' && (
             <div className="grid grid-cols-2 gap-4 animate-in fade-in">
               <div>
-                <label className="text-xs text-text-dim block mb-1">Resolution</label>
+                <label className="text-xs text-text-dim block mb-1">
+                  Resolution
+                  {isFetchingFormats && <span className="ml-1 text-neon-blue animate-pulse">⟳</span>}
+                </label>
                 <select
                   value={videoOptions.resolution}
                   onChange={(e) => setVideoOptions({ ...videoOptions, resolution: e.target.value })}
                   className="w-full bg-white/5 border border-border-glass rounded p-2 text-sm focus:border-neon-blue focus:outline-none"
                 >
-                  {RESOLUTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  {RESOLUTIONS
+                    .filter(r => {
+                      if (r.value === 'best') return true // Always show "Best Available"
+                      if (!availableResolutions) return true // Show all if not fetched yet
+                      return availableResolutions.includes(r.value)
+                    })
+                    .map(r => <option key={r.value} value={r.value}>{r.label}</option>)
+                  }
                 </select>
               </div>
               <div>
