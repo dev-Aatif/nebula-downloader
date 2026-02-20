@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { ClipboardIcon, DownloadIcon, ChevronDownIcon, SettingsIcon } from './icons'
-import { InfoIcon } from './Tooltip'
+import { ClipboardIcon, DownloadIcon, SettingsIcon } from './icons'
+
 import { isValidVideoUrl, getUrlValidationMessage } from '../utils/urlValidator'
 import PlaylistModal from './PlaylistModal'
 import type { PlaylistItem } from '../../../main/types'
