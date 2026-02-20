@@ -17,7 +17,6 @@ import {
   PauseIcon,
   TrashIcon,
   SearchIcon,
-  ListIcon,
   DownloadIcon
 } from './components/icons'
 
@@ -45,7 +44,6 @@ const pages: Record<
     setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>
     onMultiSelect: (id: string) => void
     onSelectAll?: () => void
-    viewMode?: 'normal' | 'simple'
     isLoaded?: boolean
   }>
 > = {
@@ -84,7 +82,6 @@ function App(): React.ReactElement {
   const [activeDownloadId, setActiveDownloadId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
-  const [viewMode, setViewMode] = useState<'normal' | 'simple'>('normal')
   const [isDragging, setIsDragging] = useState(false)
   const [droppedUrl, setDroppedUrl] = useState<string>('')
   const [isDownloadsLoaded, setIsDownloadsLoaded] = useState(false)
@@ -594,7 +591,6 @@ function App(): React.ReactElement {
               selectedIds={selectedIds}
               setSelectedIds={setSelectedIds}
               onMultiSelect={handleToggleSelect}
-              viewMode={viewMode}
               isLoaded={isDownloadsLoaded}
             // onSelectAll is handled in the page component to access sorted/filtered list
             />

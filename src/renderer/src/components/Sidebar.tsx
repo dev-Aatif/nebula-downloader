@@ -213,7 +213,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             {/* Footer / Version if expanded */}
             {!isCollapsed && (
                 <div className="p-4 border-t border-white/5 text-center">
-                    <div className="text-[10px] text-text-dim/50 font-mono">v1.4.0</div>
+                    <div className="text-[10px] text-text-dim/50 font-mono">v1.1.0</div>
                 </div>
             )}
         </div>
