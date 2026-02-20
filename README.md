@@ -23,7 +23,7 @@
 
 | Platform    | Download                                                                       | Type          |
 | ----------- | ------------------------------------------------------------------------------ | ------------- |
-| **Windows** | [Portable ZIP](https://github.com/dev-Aatif/nebula-downloader/releases/latest) | Extract & Run |
+| **Windows** | [.exe](https://github.com/dev-Aatif/nebula-downloader/releases/latest) | Install & Run |
 | **Linux**   | [AppImage](https://github.com/dev-Aatif/nebula-downloader/releases/latest)     | Universal     |
 | **Linux**   | [Snap](https://github.com/dev-Aatif/nebula-downloader/releases/latest)         | Ubuntu/Snap   |
 
