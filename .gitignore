@@ -93,3 +93,7 @@ ffmpeg-linux.tar.xz
 scripts/
 
 *.txt
+#Tests
+tests/adversarial/
+tests/
+Tests/

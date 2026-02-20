@@ -27,8 +27,31 @@ const mockElectron = {
         // console.log(`[MockElectron] IPC Send: ${channel}`, data);
       }
     };
+  },
+  // Add other required Electron modules
+  ipcMain: {
+    handle: () => {},
+    on: () => {}
+  },
+  dialog: {
+    showOpenDialog: async () => ({ canceled: true, filePaths: [] }),
+    showMessageBox: async () => {}
+  },
+  shell: {
+    openExternal: async () => {},
+    showItemInFolder: async () => {}
+  },
+  clipboard: {
+    readText: () => ''
+  },
+  nativeTheme: {
+    themeSource: 'system',
+    shouldUseDarkColors: false,
+    on: () => {}
   }
 };
+
+// ... (rest of file)
 
 // Mock the 'electron' module require
 const Module = require('module');

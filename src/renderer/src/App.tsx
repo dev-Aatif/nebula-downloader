@@ -4,6 +4,7 @@ import Settings from './pages/settings'
 import History from './pages/History'
 import Help from './pages/Help'
 import AddDownloadModal from './components/AddDownloadModal'
+import Sidebar from './components/Sidebar'
 import DownloadDetails from './components/DownloadDetails'
 import ClipboardToast from './components/ClipboardToast'
 import DisclaimerModal from './components/DisclaimerModal'
@@ -16,14 +17,8 @@ import {
   PauseIcon,
   TrashIcon,
   SearchIcon,
-  SettingsIcon,
-  ClockIcon,
-  HelpIcon,
-  DownloadIcon,
-  CheckCircleIcon,
-  AlertCircleIcon,
   ListIcon,
-  BanIcon
+  DownloadIcon
 } from './components/icons'
 
 type Page = 'Downloads' | 'History' | 'Settings' | 'Help'
@@ -50,6 +45,8 @@ const pages: Record<
     setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>
     onMultiSelect: (id: string) => void
     onSelectAll?: () => void
+    viewMode?: 'normal' | 'simple'
+    isLoaded?: boolean
   }>
 > = {
   Downloads,
@@ -75,21 +72,7 @@ const ToolbarButton: React.FC<{
   </button>
 )
 
-const SidebarItem: React.FC<{
-  icon: React.ReactNode
-  label: string
-  isActive: boolean
-  onClick: () => void
-  count?: number
-}> = ({ icon, label, isActive, onClick, count }) => (
-  <div className={`sidebar-item ${isActive ? 'active' : ''}`} onClick={onClick}>
-    {icon}
-    <span className="flex-1">{label}</span>
-    {count !== undefined && count > 0 && (
-      <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded-full">{count}</span>
-    )}
-  </div>
-)
+
 
 function App(): React.ReactElement {
   const [activePage, setActivePage] = useState<Page>('Downloads')
@@ -100,6 +83,19 @@ function App(): React.ReactElement {
   const [downloads, setDownloads] = useState<Download[]>([])
   const [activeDownloadId, setActiveDownloadId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [viewMode, setViewMode] = useState<'normal' | 'simple'>('normal')
+  const [isDragging, setIsDragging] = useState(false)
+  const [droppedUrl, setDroppedUrl] = useState<string>('')
+  const [isDownloadsLoaded, setIsDownloadsLoaded] = useState(false)
+
+  // Refs for values used inside stable IPC listeners
+  const activeDownloadIdRef = useRef<string | null>(null)
+  const selectedDownloadIdRef = useRef<string | null>(null)
+
+  // Keep refs in sync with state
+  useEffect(() => { activeDownloadIdRef.current = activeDownloadId }, [activeDownloadId])
+  useEffect(() => { selectedDownloadIdRef.current = selectedDownloadId }, [selectedDownloadId])
 
   // Selection handlers
   const handleToggleSelect = useCallback((id: string): void => {
@@ -229,6 +225,7 @@ function App(): React.ReactElement {
   useEffect(() => {
     const unlistenLoaded = window.api.onDownloadsLoaded((loadedDownloads) => {
       setDownloads(loadedDownloads)
+      setIsDownloadsLoaded(true)
     })
 
     const unlistenAdded = window.api.onDownloadAdded((download) => {
@@ -240,8 +237,8 @@ function App(): React.ReactElement {
 
     const unlistenDeleted = window.api.onDownloadDeleted((id) => {
       setDownloads((prev) => prev.filter((d) => d.id !== id))
-      if (activeDownloadId === id) setActiveDownloadId(null)
-      if (selectedDownloadId === id) setSelectedDownloadId(null)
+      if (activeDownloadIdRef.current === id) setActiveDownloadId(null)
+      if (selectedDownloadIdRef.current === id) setSelectedDownloadId(null)
     })
 
     const unlistenProgress = window.api.onDownloadProgress((data) => {
@@ -255,7 +252,7 @@ function App(): React.ReactElement {
       setDownloads((prev) =>
         prev.map((d) => (d.id === id ? { ...d, status: 'completed', progress: 100 } : d))
       )
-      if (activeDownloadId === id) setActiveDownloadId(null)
+      if (activeDownloadIdRef.current === id) setActiveDownloadId(null)
     })
 
     const unlistenError = window.api.onDownloadError(({ id, error }) => {
@@ -263,10 +260,10 @@ function App(): React.ReactElement {
         prev.map((d) =>
           d.id === id
             ? {
-                ...d,
-                status: 'error',
-                errorLogs: d.errorLogs ? [...d.errorLogs, error] : [error]
-              }
+              ...d,
+              status: 'error',
+              errorLogs: d.errorLogs ? [...d.errorLogs, error] : [error]
+            }
             : d
         )
       )
@@ -285,6 +282,9 @@ function App(): React.ReactElement {
     })
     window.api.setTheme('system')
 
+    // Mark as loaded after a short timeout in case downloads-loaded event already fired
+    const loadedTimeout = setTimeout(() => setIsDownloadsLoaded(true), 3000)
+
     return () => {
       unlistenLoaded()
       unlistenAdded()
@@ -294,8 +294,9 @@ function App(): React.ReactElement {
       unlistenError()
       unlistenPaused()
       removeListener()
+      clearTimeout(loadedTimeout)
     }
-  }, [activeDownloadId, selectedDownloadId])
+  }, []) // Stable listeners — no dependencies that cause re-registration
 
   // Clipboard detection on focus
   const checkClipboard = useCallback(async () => {
@@ -400,17 +401,43 @@ function App(): React.ReactElement {
     setAddDownloadModalOpen(true)
   }
 
-  const handleAddDownloadFromModal = (url: string): void => {
-    if (url) {
-      window.api.addDownload(url)
-    }
-  }
+
 
 
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     setSearchTerm(e.target.value)
   }
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return
+    setIsDragging(false)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+
+    if (e.dataTransfer.items) {
+      for (let i = 0; i < e.dataTransfer.items.length; i++) {
+        if (e.dataTransfer.items[i].kind === 'string' && e.dataTransfer.items[i].type === 'text/plain') {
+          e.dataTransfer.items[i].getAsString((s) => {
+            if (s && (s.startsWith('http') || isValidVideoUrl(s))) {
+              setDroppedUrl(s)
+              setAddDownloadModalOpen(true)
+            }
+          })
+          return
+        }
+      }
+    }
+  }, [])
 
   const ActivePageComponent = pages[activePage]
   const displayedDownload =
@@ -427,7 +454,25 @@ function App(): React.ReactElement {
   const cancelledCount = downloads.filter((d) => d.status === 'cancelled').length
 
   return (
-    <div className="flex flex-col h-screen bg-bg-deep text-text-main font-sans">
+    <div
+      className="flex flex-col h-screen bg-bg-deep text-text-main font-sans overflow-hidden"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drag Overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 z-50 bg-neon-blue/20 backdrop-blur-sm border-4 border-neon-blue border-dashed m-4 rounded-xl flex items-center justify-center animate-in fade-in cursor-copy pointer-events-none">
+          <div className="bg-bg-deep p-6 rounded-xl border border-neon-blue shadow-2xl flex flex-col items-center gap-4">
+            <div className="p-4 bg-neon-blue/20 rounded-full animate-bounce">
+              <DownloadIcon className="w-12 h-12 text-neon-blue" />
+            </div>
+            <h2 className="text-2xl font-bold text-white">Drop URL to Download</h2>
+            <p className="text-text-dim">Release to start adding this video</p>
+          </div>
+        </div>
+      )}
+
       {/* Offline Warning Banner */}
       {!isOnline && (
         <div className="bg-red-500/90 text-white px-4 py-2 text-center text-sm flex items-center justify-center gap-2">
@@ -439,7 +484,7 @@ function App(): React.ReactElement {
       {/* TOP BAR */}
       <div className="toolbar">
         <div className="app-brand flex items-center gap-3 pl-4">
-          <span className="text-2xl font-black tracking-[0.2em] uppercase" style={{ 
+          <span className="text-2xl font-black tracking-[0.2em] uppercase" style={{
             fontFamily: 'Orbitron, Inter, sans-serif',
             background: 'linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 50%, var(--neon-blue) 100%)',
             backgroundSize: '200% auto',
@@ -453,6 +498,7 @@ function App(): React.ReactElement {
         </div>
 
         <div className="tool-group">
+
           {selectedIds.size > 0 ? (
             <>
               <ToolbarButton title="Resume Selected" onClick={handleBulkResume}>
@@ -470,7 +516,7 @@ function App(): React.ReactElement {
               <ToolbarButton title="Pause All" onClick={() => window.api.pauseAllDownloads()}>
                 <PauseIcon className="w-5 h-5" />
               </ToolbarButton>
-              <ToolbarButton title="Delete All" onClick={() => {}}>
+              <ToolbarButton title="Delete All" onClick={() => { }}>
                 <TrashIcon className="w-5 h-5 opacity-50" />
               </ToolbarButton>
             </>
@@ -517,101 +563,22 @@ function App(): React.ReactElement {
 
       <div className="main-layout">
         {/* SIDEBAR */}
-        <div className="sidebar">
-          <div className="sidebar-label">Downloads</div>
-          <SidebarItem
-            icon={<DownloadIcon />}
-            label="All Downloads"
-            isActive={activePage === 'Downloads' && activeFilter === 'All'}
-            onClick={() => {
-              setActivePage('Downloads')
-              setActiveFilter('All')
-            }}
-          />
-          <SidebarItem
-            icon={<PlayIcon className="text-neon-blue" />}
-            label="Downloading"
-            isActive={activePage === 'Downloads' && activeFilter === 'Downloading'}
-            onClick={() => {
-              setActivePage('Downloads')
-              setActiveFilter('Downloading')
-            }}
-            count={activeCount}
-          />
-          <SidebarItem
-            icon={<ListIcon className="text-text-dim" />}
-            label="Queued"
-            isActive={activePage === 'Downloads' && activeFilter === 'Queued'}
-            onClick={() => {
-              setActivePage('Downloads')
-              setActiveFilter('Queued')
-            }}
-            count={queuedCount}
-          />
-          <SidebarItem
-            icon={<PauseIcon className="text-yellow-400" />}
-            label="Paused"
-            isActive={activePage === 'Downloads' && activeFilter === 'Paused'}
-            onClick={() => {
-              setActivePage('Downloads')
-              setActiveFilter('Paused')
-            }}
-            count={pausedCount}
-          />
-          <SidebarItem
-            icon={<CheckCircleIcon className="text-neon-green" />}
-            label="Completed"
-            isActive={activePage === 'Downloads' && activeFilter === 'Completed'}
-            onClick={() => {
-              setActivePage('Downloads')
-              setActiveFilter('Completed')
-            }}
-            count={completedCount}
-          />
-          <SidebarItem
-            icon={<AlertCircleIcon className="text-red-500" />}
-            label="Errors"
-            isActive={activePage === 'Downloads' && activeFilter === 'Error'}
-            onClick={() => {
-              setActivePage('Downloads')
-              setActiveFilter('Error')
-            }}
-            count={errorCount}
-          />
-          <SidebarItem
-            icon={<BanIcon className="text-text-dim" />}
-            label="Cancelled"
-            isActive={activePage === 'Downloads' && activeFilter === 'Cancelled'}
-            onClick={() => {
-              setActivePage('Downloads')
-              setActiveFilter('Cancelled')
-            }}
-            count={cancelledCount}
-          />
-
-          <div className="sidebar-label">Organization</div>
-          <SidebarItem
-            icon={<ClockIcon />}
-            label="History"
-            isActive={activePage === 'History'}
-            onClick={() => setActivePage('History')}
-          />
-
-          <div className="spacer"></div>
-
-          <SidebarItem
-            icon={<HelpIcon />}
-            label="Support & Help"
-            isActive={activePage === 'Help'}
-            onClick={() => setActivePage('Help')}
-          />
-          <SidebarItem
-            icon={<SettingsIcon />}
-            label="Settings"
-            isActive={activePage === 'Settings'}
-            onClick={() => setActivePage('Settings')}
-          />
-        </div>
+        <Sidebar
+          activePage={activePage}
+          activeFilter={activeFilter}
+          setActivePage={setActivePage}
+          setActiveFilter={setActiveFilter}
+          isCollapsed={isSidebarCollapsed}
+          toggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          counts={{
+            active: activeCount,
+            queued: queuedCount,
+            paused: pausedCount,
+            completed: completedCount,
+            error: errorCount,
+            cancelled: cancelledCount
+          }}
+        />
 
         {/* MAIN CONTENT AREA */}
         <div className="flex-1 flex flex-col min-w-0">
@@ -627,7 +594,9 @@ function App(): React.ReactElement {
               selectedIds={selectedIds}
               setSelectedIds={setSelectedIds}
               onMultiSelect={handleToggleSelect}
-              // onSelectAll is handled in the page component to access sorted/filtered list
+              viewMode={viewMode}
+              isLoaded={isDownloadsLoaded}
+            // onSelectAll is handled in the page component to access sorted/filtered list
             />
           </main>
 
@@ -655,8 +624,16 @@ function App(): React.ReactElement {
 
       <AddDownloadModal
         isOpen={isAddDownloadModalOpen}
-        onClose={() => setAddDownloadModalOpen(false)}
-        onAdd={handleAddDownloadFromModal}
+        onClose={() => {
+          setAddDownloadModalOpen(false)
+          setDroppedUrl('')
+        }}
+        initialUrl={droppedUrl}
+        onAdd={(url, formatId, options) => {
+          window.api.addDownload(url, formatId, options)
+          setAddDownloadModalOpen(false)
+          setDroppedUrl('')
+        }}
       />
 
       {/* Clipboard Detection Toast */}

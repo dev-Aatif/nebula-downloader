@@ -31,6 +31,10 @@ export type Download = {
   speedValue?: number
   thumbnail?: string // URL path to the thumbnail
   retryCount?: number // Number of auto-retry attempts
+  // Format Overhaul Fields
+  formatOption?: string // The ID or label of the selected format option (e.g., 'best-video', 'mp3-320')
+  isAudioExtract?: boolean // Whether to extract audio (-x)
+  audioFormat?: string // The target audio format (e.g., 'mp3', 'm4a') for --audio-format
 }
 
 export type PlaylistItem = {

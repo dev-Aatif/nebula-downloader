@@ -44,7 +44,9 @@ export default function Downloads({
   setDownloads,
   selectedIds,
   setSelectedIds,
-  onMultiSelect
+  onMultiSelect,
+  viewMode = 'normal',
+  isLoaded = false
 }: {
   filter?: DownloadFilter
   setFilter?: React.Dispatch<React.SetStateAction<DownloadFilter>>
@@ -56,6 +58,8 @@ export default function Downloads({
   selectedIds: Set<string>
   setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>
   onMultiSelect: (id: string) => void
+  viewMode?: 'normal' | 'simple'
+  isLoaded?: boolean
 }): React.ReactElement {
   const [showPlaylistModal, setShowPlaylistModal] = useState(false)
   const [currentPlaylistItems, setCurrentPlaylistItems] = useState<PlaylistItem[]>([])
@@ -72,7 +76,7 @@ export default function Downloads({
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {}
+    onConfirm: () => { }
   })
   const [contextMenu, setContextMenu] = useState<{
     x: number
@@ -86,8 +90,8 @@ export default function Downloads({
     title: string
   } | null>(null)
 
-  // Derive loading state from downloads - no useEffect needed
-  const isLoading = downloads.length === 0
+  // Show skeletons only while data hasn't loaded yet, not when list is genuinely empty
+  const isLoading = !isLoaded
 
   const handleDownloadPlaylistItems = (selectedUrls: string[]): void => {
     selectedUrls.forEach((selectedUrl) => {
@@ -280,6 +284,7 @@ export default function Downloads({
                 e.preventDefault()
                 setContextMenu({ x: e.clientX, y: e.clientY, download })
               }}
+              viewMode={viewMode}
             />
           ))
         )}

@@ -94,7 +94,8 @@ electron.app.whenReady().then(async () => {
       ...(process.platform === 'linux' ? { icon } : {}),
       webPreferences: {
         preload: join(__dirname, '../preload/index.js'),
-        sandbox: false
+        sandbox: true,
+        contextIsolation: true
       }
     })
 
@@ -447,31 +448,42 @@ electron.app.whenReady().then(async () => {
     }
   )
 
-  electron.ipcMain.on('add-download', async (_, url: string, formatId?: string) => {
-    const videoInfo = await getVideoInfo(url)
+  electron.ipcMain.on(
+    'add-download',
+    async (
+      _,
+      url: string,
+      formatId?: string,
+      options?: { isAudioExtract?: boolean; audioFormat?: string; formatOption?: string }
+    ) => {
+      const videoInfo = await getVideoInfo(url)
 
-    const newDownload: Download = {
-      id: crypto.randomUUID(),
-      url,
-      title: videoInfo?.title || 'Untitled',
-      status: 'queued',
-      progress: 0,
-      speed: '',
-      eta: '',
-      totalSizeInBytes: videoInfo?.totalSizeInBytes || 0,
-      downloadedSizeInBytes: 0,
-      outputPath: '',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      formatId: formatId
+      const newDownload: Download = {
+        id: crypto.randomUUID(),
+        url,
+        title: videoInfo?.title || 'Untitled',
+        status: 'queued',
+        progress: 0,
+        speed: '',
+        eta: '',
+        totalSizeInBytes: videoInfo?.totalSizeInBytes || 0,
+        downloadedSizeInBytes: 0,
+        outputPath: '',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        formatId: formatId,
+        isAudioExtract: options?.isAudioExtract,
+        audioFormat: options?.audioFormat,
+        formatOption: options?.formatOption
+      }
+      await db.addDownload(newDownload)
+      mainWindow?.webContents.send('download-added', newDownload)
+      console.log(`Added download ${newDownload.id} to the queue.`)
+      if (mainWindow) {
+        startDownload(newDownload, mainWindow)
+      }
     }
-    await db.addDownload(newDownload)
-    mainWindow?.webContents.send('download-added', newDownload)
-    console.log(`Added download ${newDownload.id} to the queue.`)
-    if (mainWindow) {
-      startDownload(newDownload, mainWindow)
-    }
-  })
+  )
 
   electron.ipcMain.on('pause-download', async (_, downloadId: string) => {
     const download = await db.getDownload(downloadId)
@@ -550,12 +562,33 @@ electron.app.whenReady().then(async () => {
     }
   })
 
+  // Helper: resolve the actual file path, trying alternative extensions if needed
+  function resolveOutputPath(storedPath: string): string | null {
+    if (fs.existsSync(storedPath)) return storedPath
+    // Try swapping extension (yt-dlp captures .webm but --merge-output-format makes .mp4)
+    const baseName = storedPath.replace(/\.[^.]+$/, '')
+    const exts = ['.mp4', '.mkv', '.webm', '.mp3', '.m4a', '.opus', '.ogg', '.flac']
+    for (const ext of exts) {
+      const altPath = baseName + ext
+      if (fs.existsSync(altPath)) {
+        console.log(`[resolveOutputPath] Found: ${altPath} (stored: ${storedPath})`)
+        return altPath
+      }
+    }
+    return null
+  }
+
   electron.ipcMain.on('open-file', async (_, downloadId: string) => {
     const download = await db.getDownload(downloadId)
     console.log(`Attempting to open file for ${downloadId}. Path: ${download?.outputPath}`)
     if (download && download.outputPath) {
-      if (fs.existsSync(download.outputPath)) {
-        await electron.shell.openPath(download.outputPath)
+      const resolvedPath = resolveOutputPath(download.outputPath)
+      if (resolvedPath) {
+        // Update DB if we found the file with a different extension
+        if (resolvedPath !== download.outputPath) {
+          await db.updateDownload(downloadId, { outputPath: resolvedPath })
+        }
+        await electron.shell.openPath(resolvedPath)
       } else {
         console.error(`File does not exist at path: ${download.outputPath}`)
         if (mainWindow) {
@@ -575,8 +608,12 @@ electron.app.whenReady().then(async () => {
     const download = await db.getDownload(downloadId)
     console.log(`Attempting to show in folder for ${downloadId}. Path: ${download?.outputPath}`)
     if (download && download.outputPath) {
-      if (fs.existsSync(download.outputPath)) {
-        electron.shell.showItemInFolder(download.outputPath)
+      const resolvedPath = resolveOutputPath(download.outputPath)
+      if (resolvedPath) {
+        if (resolvedPath !== download.outputPath) {
+          await db.updateDownload(downloadId, { outputPath: resolvedPath })
+        }
+        electron.shell.showItemInFolder(resolvedPath)
       } else {
         console.error(`Item does not exist at path: ${download.outputPath}`)
         if (mainWindow) {

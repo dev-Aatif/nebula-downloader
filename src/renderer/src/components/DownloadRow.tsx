@@ -18,6 +18,7 @@ interface DownloadRowProps {
   onOpenFile: (id: string) => void
   onShowInFolder: (id: string) => void
   onContextMenu?: (e: React.MouseEvent) => void
+  viewMode?: 'normal' | 'simple'
 }
 
 const DownloadRow: React.FC<DownloadRowProps> = ({
@@ -33,7 +34,8 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
   onOpenFile,
   onShowInFolder,
   onContextMenu,
-  index
+  index,
+  viewMode = 'normal'
 }) => {
   const {
     title,
@@ -60,7 +62,7 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
 
   return (
     <div
-      className={`grid-row download-row ${isSelected ? 'selected' : ''}`}
+      className={`grid-row download-row ${isSelected ? 'selected' : ''} ${viewMode === 'simple' ? 'py-1 min-h-[40px]' : ''}`}
       onClick={(): void => onSelect(download.id)}
       onContextMenu={onContextMenu}
     >
@@ -74,11 +76,10 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
         }}
       >
         <div
-          className={`w-4 h-4 border rounded flex items-center justify-center transition-all ${
-            isMultiSelected
-              ? 'border-neon-blue bg-neon-blue/20 shadow-[0_0_8px_rgba(0,243,255,0.3)]'
-              : 'border-white/20 bg-black/20 hover:border-white/40'
-          }`}
+          className={`w-4 h-4 border rounded flex items-center justify-center transition-all ${isMultiSelected
+            ? 'border-neon-blue bg-neon-blue/20 shadow-[0_0_8px_rgba(0,243,255,0.3)]'
+            : 'border-white/20 bg-black/20 hover:border-white/40'
+            }`}
         >
           {isMultiSelected && <CheckIcon className="w-3 h-3 text-neon-blue" />}
         </div>
@@ -88,16 +89,18 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
         className="name-col truncate font-medium hover:text-neon-blue cursor-pointer transition-colors flex flex-col justify-center"
         onClick={() => onSelect(download.id)} // Click title to open details
       >
-        <div className="truncate">{title}</div>
-        <div className="text-xs text-text-dim/70">{formatBytes(download.totalSizeInBytes)}</div>
-        {status === 'error' && download.errorLogs && download.errorLogs.length > 0 && (
+        <div className={`truncate ${viewMode === 'simple' ? 'text-sm' : ''}`}>{title}</div>
+        {viewMode === 'normal' && (
+          <div className="text-xs text-text-dim/70">{formatBytes(download.totalSizeInBytes)}</div>
+        )}
+        {viewMode === 'normal' && status === 'error' && download.errorLogs && download.errorLogs.length > 0 && (
           <div className="text-[10px] text-neon-red truncate font-medium mt-0.5">
             Error: {download.errorLogs[download.errorLogs.length - 1].message}
           </div>
         )}
       </div>
       <div className="justify-center">
-        <span className={`status-pill ${status} flex items-center gap-1`}>
+        <span className={`status-pill ${status} flex items-center gap-1 ${viewMode === 'simple' ? 'text-[10px] px-1.5 py-0.5' : ''}`}>
           {status === 'downloading' && <PlayIcon className="w-3 h-3" />}
           {status === 'completed' && <CheckIcon className="w-3 h-3" />}
           {status === 'paused' && <PauseIcon className="w-3 h-3" />}
@@ -107,8 +110,8 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
         </span>
       </div>
       <div
-        className="justify-center font-mono text-[11px]"
-        title={`Remaining: ${formatBytes(remainingBytes)}`}
+        className="justify-center font-mono text-[10px] truncate min-w-0"
+        title={`${formatBytes(downloadedSizeInBytes)} / ${formatBytes(totalSizeInBytes)} — Remaining: ${formatBytes(remainingBytes)}`}
       >
         {status === 'downloading'
           ? `${formatBytes(downloadedSizeInBytes)} / ${formatBytes(totalSizeInBytes)}`

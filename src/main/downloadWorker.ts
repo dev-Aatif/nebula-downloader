@@ -187,8 +187,15 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
     // Continue with download if check fails
   }
 
-  // Let yt-dlp handle filename sanitization for consistency
+  // Let yt-dlp handle filename sanitization for consistency, but we enforce specific restrictions via args
+  // AND we sanitize the title variable if we use it in custom logic, though here we rely on yt-dlp's template
+  // However, to be safe against 'title' containing path separators that yt-dlp might respect in some versions:
   const outputTemplate = '%(title)s.%(ext)s'
+  
+  // Security: Ensure yt-dlp doesn't write outside the download directory
+  // We add --restrict-filenames to force ASCII and no special chars
+  // We also manually check the title if possible, but yt-dlp template replacement happens inside yt-dlp.
+  // The best protection is --paths and --restrict-filenames.
 
   console.log(`[Download] Starting download for: "${download.title}"`)
   console.log(`[Download] Save location (paths): ${downloadsPath}`)
@@ -196,12 +203,16 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
 
   const formatSelection = download.formatId ? download.formatId : settings.defaultFormat
 
-  // Detect if this is an audio-only download
-  // Only true if it has audio AND does NOT have video
-  const isAudioOnly =
-    (formatSelection.includes('bestaudio') || formatSelection.includes('audio')) &&
+  // Detect conversion requirements
+  const shouldExtractAudio = download.isAudioExtract
+  const audioFormat = download.audioFormat
+
+  // Logic to determine if this is effectively an audio-only download
+  // This helps us decide whether to convert thumbnail to JPG (embedded thumb issue in audio files)
+  const isAudioOnly = shouldExtractAudio ||
+    ((formatSelection.includes('bestaudio') || formatSelection.includes('audio')) &&
     !formatSelection.includes('bestvideo') &&
-    !formatSelection.includes('video')
+    !formatSelection.includes('video'))
 
   const ytDlpPath = settings.ytDlpPath || getYtDlpPath()
 
@@ -209,20 +220,35 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
     '--newline', // Force newline output for progress
     '--progress',
     '--progress-template',
-    'download:{"status":"downloading","downloaded_bytes":%(progress.downloaded_bytes)j,"total_bytes":%(progress.total_bytes|progress.total_bytes_estimate)j,"speed":%(progress.speed)j,"eta":%(progress.eta)j,"percent":"%(progress._percent_str)s"}',
+    'download:{"status":"downloading","downloaded_bytes":%(progress.downloaded_bytes)j,"total_bytes":%(progress.total_bytes|progress.total_bytes_estimate)j,"speed":%(progress.speed)j,"eta":%(progress.eta)j,"percent":"%(progress._percent_str)s","fragment_index":%(progress.fragment_index|null)j,"fragment_count":%(progress.fragment_count|null)j}',
     '--no-warnings',
-    '--no-write-thumbnail', // Explicitly prevent thumbnail downloads
+    '--no-write-thumbnail', // Explicitly prevent thumbnail downloads (we embed them)
+    '--no-part', // Write directly to final filename — prevents .part files leaking to wrong directory
+    '--restrict-filenames', // Security: Prevent path traversal and special chars
     '-f',
-    formatSelection,
+    formatSelection
+  ]
+
+  // Add audio extraction flags if requested
+  if (shouldExtractAudio) {
+    args.push('-x')
+    if (audioFormat) {
+      args.push('--audio-format', audioFormat)
+    }
+  }
+
+  args.push(
     '--paths',
     downloadsPath,
+    '--paths',
+    `temp:${downloadsPath}`,
     '--output',
     outputTemplate,
     '--no-simulate',
     '--print',
     'before_dl:{"title":%(title)j,"thumbnail":%(thumbnail)j,"filesize":%(filesize,filesize_approx)j,"filename":%(filename)j}',
     download.url
-  ]
+  )
 
   // Set ffmpeg path - use settings or bundled ffmpeg
   // Note: --ffmpeg-location expects the DIRECTORY containing ffmpeg and ffprobe
@@ -233,17 +259,29 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
   const ffprobePath = path.join(ffmpegDir, process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe')
   const ffprobeExists = fs.existsSync(ffprobePath)
 
-  // For audio-only downloads, embed thumbnail and metadata (if ffprobe is available)
-  if (isAudioOnly) {
-    if (ffprobeExists) {
-      args.unshift('--embed-thumbnail', '--add-metadata', '--convert-thumbnails', 'jpg')
-    } else {
-      // ffprobe not available - just add metadata without embedding thumbnail
-      console.warn('[Download] ffprobe not found, skipping thumbnail embedding for audio')
-      args.unshift('--add-metadata')
+  // Embed thumbnail and metadata if ffprobe is available (for both Video and Audio)
+  if (ffprobeExists) {
+    args.unshift('--embed-thumbnail', '--add-metadata')
+    
+    // For audio only, convert thumbnail to jpg to ensure compatibility
+    if (isAudioOnly) {
+       args.unshift('--convert-thumbnails', 'jpg')
     }
   } else {
-    // For video, use mp4 merge format
+    // ffprobe not available - just add metadata without embedded thumbnail
+    console.warn('[Download] ffprobe not found, skipping thumbnail embedding')
+    args.unshift('--add-metadata')
+  }
+
+  // Handle merge output format for video
+  // If we are extracting audio, we don't merge to mp4 (yt-dlp handles the conversion)
+  // If we are downloading video, we enforce mp4 merge unless it's already specific
+  if (!isAudioOnly && !shouldExtractAudio) {
+    // For video, use mp4 merge format to ensure video+audio streams are merged into mp4 container
+    // But check if user selected 'best' or 'bestvideo+bestaudio' which commonly needs merge
+    // If user explicitly selected a container in the format string (e.g. [ext=webm]), we might respect it,
+    // but the requirement was "ensure friendly format".
+    // Let's stick to mp4 merge for generic video downloads.
     args.splice(args.indexOf('--no-simulate'), 0, '--merge-output-format', 'mp4')
   }
 
@@ -253,7 +291,12 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
   if (settings.speedLimit && settings.speedLimit > 0) {
     args.push('--limit-rate', `${settings.speedLimit}K`)
   }
-  args.push('--ffmpeg-location', ffmpegDir)
+  // Only add --ffmpeg-location if the directory actually exists
+  if (fs.existsSync(ffmpegDir)) {
+    args.push('--ffmpeg-location', ffmpegDir)
+  } else {
+    console.warn(`[Download] FFmpeg directory not found: ${ffmpegDir}, skipping --ffmpeg-location`)
+  }
 
   let fullStderr = ''
 
@@ -275,7 +318,32 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
       return
     }
 
+    console.log(`[Download] Full command: ${ytDlpPath} ${args.join(' ')}`)
+
     const ytDlp = spawn(ytDlpPath, args, { cwd: downloadsPath })
+
+    // Handle spawn errors (e.g., binary not found, permission denied)
+    ytDlp.on('error', (err) => {
+      console.error(`[Download] Failed to spawn yt-dlp for ${download.id}:`, err)
+      activeProcesses.delete(download.id)
+      activeDownloadCount--
+      const errorLog: DownloadError = {
+        timestamp: new Date(),
+        message: `Failed to start yt-dlp: ${err.message}`,
+        type: 'process-spawn',
+        details: `Path: ${ytDlpPath}\nError: ${err.message}`
+      }
+      db.updateDownload(download.id, {
+        status: 'error',
+        errorLogs: [...(download.errorLogs || []), errorLog]
+      })
+      if (!window.isDestroyed()) {
+        window.webContents.send('download-error', { id: download.id, error: errorLog })
+        window.webContents.send('download-progress', { id: download.id, status: 'error' })
+      }
+      processQueue()
+    })
+
     activeProcesses.set(download.id, ytDlp)
     db.updateDownload(download.id, { status: 'downloading' })
     window.webContents.send('download-progress', { id: download.id, status: 'downloading' })
@@ -321,10 +389,25 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
 
           if (isProgress) {
             // Treat as Progress JSON (from --progress-template)
-            // Parse percent from string like "50.5%"
-            const percentValue = output.percent
-              ? parseFloat(output.percent.toString().replace('%', '').trim())
-              : 0
+            
+            // Calculate percent manually if string is missing or NA
+            let percentValue = 0
+            if (output.percent && typeof output.percent === 'string') {
+               const p = parseFloat(output.percent.replace('%', '').trim())
+               if (!isNaN(p)) percentValue = p
+            }
+
+            // Fallback: Calculate from bytes if percent is 0/missing but we have total_bytes
+            if ((!percentValue || percentValue === 0) && output.downloaded_bytes && output.total_bytes) {
+               percentValue = (output.downloaded_bytes / output.total_bytes) * 100
+            }
+            // Fallback 2: Estimate from fragments if available
+            if ((!percentValue || percentValue === 0) && output.fragment_index && output.fragment_count) {
+               percentValue = (output.fragment_index / output.fragment_count) * 100
+            }
+
+            // Ensure percent is a number
+            if (isNaN(percentValue)) percentValue = 0
 
             // Speed/eta come as numbers or null (using %j)
             const speedNum = output.speed && typeof output.speed === 'number' ? output.speed : 0
@@ -332,8 +415,8 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
 
             const updateData: Partial<Download> = {
               progress: percentValue,
-              speed: speedNum > 0 ? `${(speedNum / 1024 / 1024).toFixed(2)} MB/s` : '0',
-              eta: etaNum > 0 ? `${Math.floor(etaNum / 60)}m ${etaNum % 60}s` : '0',
+              speed: speedNum > 0 ? `${(speedNum / 1024 / 1024).toFixed(2)} MB/s` : '0 MB/s',
+              eta: etaNum > 0 ? `${Math.floor(etaNum / 60)}m ${etaNum % 60}s` : 'Calculating...',
               downloadedSizeInBytes: output.downloaded_bytes || 0,
               status: 'downloading',
               speedValue: speedNum
@@ -433,6 +516,12 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
       console.error(`[Download] yt-dlp STDERR for ${download.id}:`)
       console.error(errorString)
 
+      // Skip warnings — they go to stderr but aren't actual errors
+      if (errorString.trim().startsWith('WARNING:')) {
+        console.log(`[Download] Ignoring yt-dlp warning (not an error)`)
+        return
+      }
+
       if (window.isDestroyed()) return
 
       const currentDownload = await db.getDownload(download.id)
@@ -465,6 +554,23 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
       const currentDownload = await db.getDownload(download.id)
       if (currentDownload?.status === 'paused') {
         console.log(`Download for ${download.id} paused.`)
+      } else if (currentDownload?.status === 'cancelled') {
+        console.log(`Download for ${download.id} cancelled.`)
+      } else if (code === null) {
+        // Process was killed by a signal (SIGTERM/SIGKILL) — not a real error
+        console.log(`[Download] Process killed by signal for ${download.id}, treating as interrupted.`)
+        if (!window.isDestroyed()) {
+          await db.updateDownload(download.id, { status: 'error', errorLogs: [
+            ...(currentDownload?.errorLogs || []),
+            {
+              timestamp: new Date(),
+              message: 'Download was interrupted (process killed). Try downloading again.',
+              type: 'general' as const,
+              details: fullStderr || 'Process terminated by signal'
+            }
+          ]})
+          window.webContents.send('download-progress', { id: download.id, status: 'error' })
+        }
       } else if (code === 0) {
         if (window.isDestroyed()) return
 
@@ -486,6 +592,21 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
             if (fs.existsSync(potentialPath)) {
               finalPath = potentialPath
               console.log(`[Download]   ✓ File found via basename check: ${finalPath}`)
+            }
+          }
+        }
+
+        // Extension mismatch fix: yt-dlp captures pre-merge filename (e.g. .webm)
+        // but --merge-output-format mp4 changes the actual file to .mp4
+        if (finalPath && !fs.existsSync(finalPath)) {
+          const baseName = finalPath.replace(/\.[^.]+$/, '') // strip extension
+          const alternativeExts = ['.mp4', '.mkv', '.webm', '.mp3', '.m4a', '.opus', '.ogg', '.flac']
+          for (const ext of alternativeExts) {
+            const altPath = baseName + ext
+            if (fs.existsSync(altPath)) {
+              console.log(`[Download]   ✓ Found file with different extension: ${altPath} (was looking for ${path.basename(finalPath)})`)
+              finalPath = altPath
+              break
             }
           }
         }
