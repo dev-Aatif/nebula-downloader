@@ -97,3 +97,24 @@ scripts/
 tests/adversarial/
 tests/
 Tests/
+
+#temp files
+*.part
+*.mp3
+*.m4a
+*.mp4
+*.webm
+*.opus
+*.ogg
+*.wav
+*.flac
+*.aac
+*.wma
+*.m4a
+*.m4b
+*.m4v
+*.mov
+*.avi
+*.wmv
+*.flv
+*.mkv
