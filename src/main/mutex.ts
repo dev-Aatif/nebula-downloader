@@ -1,4 +1,3 @@
-
 /**
  * Simple Mutex to prevent race conditions in lowdb
  */

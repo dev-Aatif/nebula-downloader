@@ -37,17 +37,9 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
   index,
   viewMode = 'normal'
 }) => {
-  const {
-    title,
-    totalSizeInBytes,
-    downloadedSizeInBytes,
-    progress,
-    status,
-    speedValue
-  } = download
+  const { title, totalSizeInBytes, downloadedSizeInBytes, progress, status, speedValue } = download
 
   const remainingBytes = totalSizeInBytes - downloadedSizeInBytes
-
 
   const getEta = (): string => {
     if (!speedValue || speedValue === 0 || !totalSizeInBytes || progress === 100) return ''
@@ -76,10 +68,11 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
         }}
       >
         <div
-          className={`w-4 h-4 border rounded flex items-center justify-center transition-all ${isMultiSelected
-            ? 'border-neon-blue bg-neon-blue/20 shadow-[0_0_8px_rgba(0,243,255,0.3)]'
-            : 'border-white/20 bg-black/20 hover:border-white/40'
-            }`}
+          className={`w-4 h-4 border rounded flex items-center justify-center transition-all ${
+            isMultiSelected
+              ? 'border-neon-blue bg-neon-blue/20 shadow-[0_0_8px_rgba(0,243,255,0.3)]'
+              : 'border-white/20 bg-black/20 hover:border-white/40'
+          }`}
         >
           {isMultiSelected && <CheckIcon className="w-3 h-3 text-neon-blue" />}
         </div>
@@ -93,14 +86,19 @@ const DownloadRow: React.FC<DownloadRowProps> = ({
         {viewMode === 'normal' && (
           <div className="text-xs text-text-dim/70">{formatBytes(download.totalSizeInBytes)}</div>
         )}
-        {viewMode === 'normal' && status === 'error' && download.errorLogs && download.errorLogs.length > 0 && (
-          <div className="text-[10px] text-neon-red truncate font-medium mt-0.5">
-            Error: {download.errorLogs[download.errorLogs.length - 1].message}
-          </div>
-        )}
+        {viewMode === 'normal' &&
+          status === 'error' &&
+          download.errorLogs &&
+          download.errorLogs.length > 0 && (
+            <div className="text-[10px] text-neon-red truncate font-medium mt-0.5">
+              Error: {download.errorLogs[download.errorLogs.length - 1].message}
+            </div>
+          )}
       </div>
       <div className="justify-center">
-        <span className={`status-pill ${status} flex items-center gap-1 ${viewMode === 'simple' ? 'text-[10px] px-1.5 py-0.5' : ''}`}>
+        <span
+          className={`status-pill ${status} flex items-center gap-1 ${viewMode === 'simple' ? 'text-[10px] px-1.5 py-0.5' : ''}`}
+        >
           {status === 'downloading' && <PlayIcon className="w-3 h-3" />}
           {status === 'completed' && <CheckIcon className="w-3 h-3" />}
           {status === 'paused' && <PauseIcon className="w-3 h-3" />}

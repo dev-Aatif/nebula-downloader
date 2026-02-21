@@ -32,48 +32,7 @@ import url from 'url'
 let server: http.Server | null = null
 let isRunning = false
 
-// Get video info using yt-dlp
-async function getVideoInfo(videoUrl: string): Promise<Partial<Download> | null> {
-  return new Promise((resolve) => {
-    const settings = db.getSettings()
-    const ytdlpPath = settings.ytDlpPath || getYtDlpPath()
-
-    const formatProcess = spawn(ytdlpPath, ['--dump-json', '--no-playlist', videoUrl])
-    let stdout = ''
-    let stderr = ''
-
-    formatProcess.stdout.on('data', (data) => {
-      stdout += data.toString()
-    })
-
-    formatProcess.stderr.on('data', (data) => {
-      stderr += data.toString()
-    })
-
-    formatProcess.on('close', (code) => {
-      if (code === 0) {
-        try {
-          const jsonOutput = JSON.parse(stdout)
-          const info: Partial<Download> = {
-            title: jsonOutput.title,
-            totalSizeInBytes: jsonOutput.filesize || jsonOutput.filesize_approx || 0
-          }
-          resolve(info)
-        } catch (error) {
-          console.error('[API Server] Failed to parse yt-dlp JSON output:', error)
-          resolve(null)
-        }
-      } else {
-        console.error(`[API Server] yt-dlp exited with code ${code}: ${stderr}`)
-        resolve(null)
-      }
-    })
-    formatProcess.on('error', (err) => {
-      console.error('[API Server] Failed to start yt-dlp process:', err)
-      resolve(null)
-    })
-  })
-}
+// Removed redundant getVideoInfo function
 
 // Get available formats for a video
 async function getFormats(
@@ -82,8 +41,11 @@ async function getFormats(
   return new Promise((resolve) => {
     const settings = db.getSettings()
     const ytdlpPath = settings.ytDlpPath || getYtDlpPath()
+    const downloadsPath = settings.downloadDirectory || electron.app.getPath('downloads')
 
-    const formatProcess = spawn(ytdlpPath, ['--dump-json', '--no-playlist', videoUrl])
+    const formatProcess = spawn(ytdlpPath, ['--dump-json', '--no-playlist', videoUrl], {
+      cwd: downloadsPath
+    })
     let stdout = ''
     let stderr = ''
 
@@ -137,13 +99,13 @@ async function getMetadata(
   return new Promise((resolve) => {
     const settings = db.getSettings()
     const ytdlpPath = settings.ytDlpPath || getYtDlpPath()
+    const downloadsPath = settings.downloadDirectory || electron.app.getPath('downloads')
 
-    const formatProcess = spawn(ytdlpPath, [
-      '--dump-json',
-      '--no-download',
-      '--no-playlist',
-      videoUrl
-    ])
+    const formatProcess = spawn(
+      ytdlpPath,
+      ['--dump-json', '--no-download', '--no-playlist', videoUrl],
+      { cwd: downloadsPath }
+    )
     let stdout = ''
 
     formatProcess.stdout.on('data', (data) => {
@@ -186,17 +148,21 @@ function handleRequest(
     'chrome-extension://' // Add your specific extension ID here if known, e.g. 'chrome-extension://abcdef...'
     // 'moz-extension://' // For Firefox
   ]
-  
+
   // Allow requests from allowed origins or empty origin (local tools/curl)
   // We strictly block random websites (e.g. evil.com)
-  const isAllowed = !origin || allowedOrigins.some(allowed => origin.startsWith(allowed)) || origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')
+  const isAllowed =
+    !origin ||
+    allowedOrigins.some((allowed) => origin.startsWith(allowed)) ||
+    origin.startsWith('http://localhost') ||
+    origin.startsWith('http://127.0.0.1')
 
   if (isAllowed && origin) {
     res.setHeader('Access-Control-Allow-Origin', origin)
   }
-  
+
   // Do NOT set Allow-Origin if not allowed. Browser will block the response.
-  
+
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
   res.setHeader('Content-Type', 'application/json')
@@ -292,19 +258,16 @@ function handleRequest(
           console.log(`[API Server] Format ID: ${formatId}`)
         }
 
-        // Get video info
-        const videoInfo = await getVideoInfo(videoUrl)
-
-        // Create download entry
+        // Create download entry instantly to avoid "checking" lag
         const newDownload: Download = {
           id: crypto.randomUUID(),
           url: videoUrl,
-          title: videoInfo?.title || 'Untitled',
+          title: 'Fetching metadata...',
           status: 'queued',
           progress: 0,
           speed: '',
           eta: '',
-          totalSizeInBytes: videoInfo?.totalSizeInBytes || 0,
+          totalSizeInBytes: 0,
           downloadedSizeInBytes: 0,
           outputPath: '',
           createdAt: new Date(),
@@ -418,4 +381,3 @@ export function stopApiServer(): Promise<void> {
 export function isApiServerRunning(): boolean {
   return isRunning
 }
-

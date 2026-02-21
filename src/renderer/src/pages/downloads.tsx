@@ -76,7 +76,7 @@ export default function Downloads({
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => { }
+    onConfirm: () => {}
   })
   const [contextMenu, setContextMenu] = useState<{
     x: number
@@ -161,7 +161,6 @@ export default function Downloads({
 
   // handleToggleSelect is now passed as onMultiSelect prop
   // Bulk handlers (delete, pause, resume) moved to App.tsx toolbar
-
 
   const sortedDownloads = [...downloads]
     .filter((d) => {

@@ -21,7 +21,8 @@ export default function DownloadCard({
   onOpenFile: (id: string) => void
   onShowInFolder: (id: string) => void
 }): React.JSX.Element {
-  const { thumbnail, status, progress, speed, eta, totalSizeInBytes, downloadedSizeInBytes } = download
+  const { thumbnail, status, progress, speed, eta, totalSizeInBytes, downloadedSizeInBytes } =
+    download
   const [showErrorDetails, setShowErrorDetails] = useState(false) // State to toggle error details visibility
 
   const remainingSizeInBytes = totalSizeInBytes - downloadedSizeInBytes
@@ -33,9 +34,14 @@ export default function DownloadCard({
       <div className="flex gap-4 items-center">
         <div className="w-[120px] h-[68px] bg-card-alt rounded flex-shrink-0 overflow-hidden">
           {thumbnail ? (
-            <img src={thumbnail} alt="" className="w-full h-full object-cover" onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none'
-            }} />
+            <img
+              src={thumbnail}
+              alt=""
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                ;(e.target as HTMLImageElement).style.display = 'none'
+              }}
+            />
           ) : (
             <div className="w-full h-full flex items-center justify-center opacity-20">
               <span className="text-2xl">🎬</span>

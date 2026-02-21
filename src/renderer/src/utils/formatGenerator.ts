@@ -1,4 +1,3 @@
-
 export type VideoFormatOptions = {
   resolution: string
   container: string
@@ -78,7 +77,7 @@ export function generateAudioFormat(options: AudioFormatOptions): FormatGenerati
   // For audio, we strictly use bestaudio/best and rely on -x --audio-format to convert
   // This ensures we get the best source and convert it to the desired output
   const formatString = 'bestaudio/best'
-  
+
   return {
     formatId: formatString,
     isAudioExtract: true,

@@ -49,11 +49,7 @@ const DownloadDetails: React.FC<DownloadDetailsProps> = ({ download }) => {
           <>
             <div className="details-thumb overflow-hidden bg-black/40">
               {download.thumbnail ? (
-                <img
-                  src={download.thumbnail}
-                  alt={title}
-                  className="w-full h-full object-cover"
-                />
+                <img src={download.thumbnail} alt={title} className="w-full h-full object-cover" />
               ) : (
                 <FileIcon className="w-12 h-12 text-neon-blue/40" />
               )}

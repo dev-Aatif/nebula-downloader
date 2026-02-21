@@ -70,8 +70,6 @@ const ToolbarButton: React.FC<{
   </button>
 )
 
-
-
 function App(): React.ReactElement {
   const [activePage, setActivePage] = useState<Page>('Downloads')
   const [activeFilter, setActiveFilter] = useState<DownloadFilter>('All')
@@ -91,8 +89,12 @@ function App(): React.ReactElement {
   const selectedDownloadIdRef = useRef<string | null>(null)
 
   // Keep refs in sync with state
-  useEffect(() => { activeDownloadIdRef.current = activeDownloadId }, [activeDownloadId])
-  useEffect(() => { selectedDownloadIdRef.current = selectedDownloadId }, [selectedDownloadId])
+  useEffect(() => {
+    activeDownloadIdRef.current = activeDownloadId
+  }, [activeDownloadId])
+  useEffect(() => {
+    selectedDownloadIdRef.current = selectedDownloadId
+  }, [selectedDownloadId])
 
   // Selection handlers
   const handleToggleSelect = useCallback((id: string): void => {
@@ -106,7 +108,6 @@ function App(): React.ReactElement {
       return newSet
     })
   }, [])
-
 
   // Bulk Handlers
   // Bulk Handlers
@@ -257,10 +258,10 @@ function App(): React.ReactElement {
         prev.map((d) =>
           d.id === id
             ? {
-              ...d,
-              status: 'error',
-              errorLogs: d.errorLogs ? [...d.errorLogs, error] : [error]
-            }
+                ...d,
+                status: 'error',
+                errorLogs: d.errorLogs ? [...d.errorLogs, error] : [error]
+              }
             : d
         )
       )
@@ -398,10 +399,6 @@ function App(): React.ReactElement {
     setAddDownloadModalOpen(true)
   }
 
-
-
-
-
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     setSearchTerm(e.target.value)
   }
@@ -423,7 +420,10 @@ function App(): React.ReactElement {
 
     if (e.dataTransfer.items) {
       for (let i = 0; i < e.dataTransfer.items.length; i++) {
-        if (e.dataTransfer.items[i].kind === 'string' && e.dataTransfer.items[i].type === 'text/plain') {
+        if (
+          e.dataTransfer.items[i].kind === 'string' &&
+          e.dataTransfer.items[i].type === 'text/plain'
+        ) {
           e.dataTransfer.items[i].getAsString((s) => {
             if (s && (s.startsWith('http') || isValidVideoUrl(s))) {
               setDroppedUrl(s)
@@ -481,21 +481,24 @@ function App(): React.ReactElement {
       {/* TOP BAR */}
       <div className="toolbar">
         <div className="app-brand flex items-center gap-3 pl-4">
-          <span className="text-2xl font-black tracking-[0.2em] uppercase" style={{
-            fontFamily: 'Orbitron, Inter, sans-serif',
-            background: 'linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 50%, var(--neon-blue) 100%)',
-            backgroundSize: '200% auto',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            textShadow: '0 0 30px rgba(0, 243, 255, 0.3)',
-            animation: 'shimmer 3s linear infinite'
-          }}>
+          <span
+            className="text-2xl font-black tracking-[0.2em] uppercase"
+            style={{
+              fontFamily: 'Orbitron, Inter, sans-serif',
+              background:
+                'linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 50%, var(--neon-blue) 100%)',
+              backgroundSize: '200% auto',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              textShadow: '0 0 30px rgba(0, 243, 255, 0.3)',
+              animation: 'shimmer 3s linear infinite'
+            }}
+          >
             NEBULA
           </span>
         </div>
 
         <div className="tool-group">
-
           {selectedIds.size > 0 ? (
             <>
               <ToolbarButton title="Resume Selected" onClick={handleBulkResume}>
@@ -513,13 +516,12 @@ function App(): React.ReactElement {
               <ToolbarButton title="Pause All" onClick={() => window.api.pauseAllDownloads()}>
                 <PauseIcon className="w-5 h-5" />
               </ToolbarButton>
-              <ToolbarButton title="Delete All" onClick={() => { }}>
+              <ToolbarButton title="Delete All" onClick={() => {}}>
                 <TrashIcon className="w-5 h-5 opacity-50" />
               </ToolbarButton>
             </>
           )}
         </div>
-
 
         <div className="spacer"></div>
 
@@ -554,8 +556,6 @@ function App(): React.ReactElement {
             </span>
           )}
         </div>
-
-
       </div>
 
       <div className="main-layout">
@@ -592,7 +592,7 @@ function App(): React.ReactElement {
               setSelectedIds={setSelectedIds}
               onMultiSelect={handleToggleSelect}
               isLoaded={isDownloadsLoaded}
-            // onSelectAll is handled in the page component to access sorted/filtered list
+              // onSelectAll is handled in the page component to access sorted/filtered list
             />
           </main>
 
@@ -615,8 +615,6 @@ function App(): React.ReactElement {
           )}
         </div>
       </div>
-
-
 
       <AddDownloadModal
         isOpen={isAddDownloadModalOpen}

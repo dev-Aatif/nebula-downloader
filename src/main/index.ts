@@ -1,5 +1,5 @@
 import electron from 'electron'
-import { join } from 'path'
+import path, { join } from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
 // import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -37,47 +37,7 @@ import { startApiServer, stopApiServer } from './apiServer'
 let mainWindow: electron.BrowserWindow | null = null
 let tray: electron.Tray | null = null
 
-async function getVideoInfo(url: string): Promise<Partial<Download> | null> {
-  return new Promise((resolve) => {
-    const settings = db.getSettings()
-    const ytdlpPath = settings.ytDlpPath || getYtDlpPath()
-
-    const formatProcess = spawn(ytdlpPath, ['--dump-json', url])
-    let stdout = ''
-    let stderr = ''
-
-    formatProcess.stdout.on('data', (data) => {
-      stdout += data.toString()
-    })
-
-    formatProcess.stderr.on('data', (data) => {
-      stderr += data.toString()
-    })
-
-    formatProcess.on('close', (code) => {
-      if (code === 0) {
-        try {
-          const jsonOutput = JSON.parse(stdout)
-          const info: Partial<Download> = {
-            title: jsonOutput.title,
-            totalSizeInBytes: jsonOutput.filesize || jsonOutput.filesize_approx || 0
-          }
-          resolve(info)
-        } catch (error) {
-          console.error('Failed to parse yt-dlp JSON output for video info:', error)
-          resolve(null)
-        }
-      } else {
-        console.error(`yt-dlp exited with code ${code} for get-video-info: ${stderr}`)
-        resolve(null)
-      }
-    })
-    formatProcess.on('error', (err) => {
-      console.error('Failed to start yt-dlp process for get-video-info:', err)
-      resolve(null)
-    })
-  })
-}
+// Removed getVideoInfo to ensure instant download start
 
 electron.app.whenReady().then(async () => {
   // const { electronApp, optimizer, is } = await import('@electron-toolkit/utils')
@@ -303,13 +263,13 @@ electron.app.whenReady().then(async () => {
       return new Promise((resolve) => {
         const settings = db.getSettings()
         const ytdlpPath = settings.ytDlpPath || getYtDlpPath()
+        const downloadsPath = settings.downloadDirectory || electron.app.getPath('downloads')
 
-        const formatProcess = spawn(ytdlpPath, [
-          '--dump-json',
-          '--no-download',
-          '--no-playlist',
-          url
-        ])
+        const formatProcess = spawn(
+          ytdlpPath,
+          ['--dump-json', '--no-download', '--no-playlist', url],
+          { cwd: downloadsPath }
+        )
         let stdout = ''
 
         formatProcess.stdout.on('data', (data) => {
@@ -344,10 +304,13 @@ electron.app.whenReady().then(async () => {
     return new Promise((resolve) => {
       const settings = db.getSettings()
       const ytdlpPath = settings.ytDlpPath || getYtDlpPath()
+      const downloadsPath = settings.downloadDirectory || electron.app.getPath('downloads')
 
       // Windows-only: no need for chmod
 
-      const formatProcess = spawn(ytdlpPath, ['--dump-json', '--no-playlist', url])
+      const formatProcess = spawn(ytdlpPath, ['--dump-json', '--no-playlist', url], {
+        cwd: downloadsPath
+      })
       let stdout = ''
       let stderr = ''
 
@@ -396,10 +359,13 @@ electron.app.whenReady().then(async () => {
       return new Promise((resolve) => {
         const settings = db.getSettings()
         const ytdlpPath = settings.ytDlpPath || getYtDlpPath()
+        const downloadsPath = settings.downloadDirectory || electron.app.getPath('downloads')
 
         // Windows-only: no need for chmod
 
-        const playlistProcess = spawn(ytdlpPath, ['--flat-playlist', '--print-json', url])
+        const playlistProcess = spawn(ytdlpPath, ['--flat-playlist', '--print-json', url], {
+          cwd: downloadsPath
+        })
         let stdout = ''
         let stderr = ''
 
@@ -456,17 +422,16 @@ electron.app.whenReady().then(async () => {
       formatId?: string,
       options?: { isAudioExtract?: boolean; audioFormat?: string; formatOption?: string }
     ) => {
-      const videoInfo = await getVideoInfo(url)
-
+      // Bypassing get-video-info to avoid blocking the queue for 5+ seconds
       const newDownload: Download = {
         id: crypto.randomUUID(),
         url,
-        title: videoInfo?.title || 'Untitled',
+        title: 'Fetching metadata...',
         status: 'queued',
         progress: 0,
         speed: '',
         eta: '',
-        totalSizeInBytes: videoInfo?.totalSizeInBytes || 0,
+        totalSizeInBytes: 0,
         downloadedSizeInBytes: 0,
         outputPath: '',
         createdAt: new Date(),
@@ -551,13 +516,36 @@ electron.app.whenReady().then(async () => {
     await db.removeDownload(downloadId)
     mainWindow?.webContents.send('download-deleted', downloadId)
 
-    if (download && download.outputPath) {
-      if (fs.existsSync(download.outputPath)) {
-        fs.unlinkSync(download.outputPath)
-      }
-      const partFile = download.outputPath + '.part'
-      if (fs.existsSync(partFile)) {
-        fs.unlinkSync(partFile)
+    if (download) {
+      const settings = db.getSettings()
+      const downloadsPath = settings.downloadDirectory || electron.app.getPath('downloads')
+
+      const titlePrefix = download.title ? download.title.substring(0, 30) : ''
+      const exactOutputPath = download.outputPath
+
+      try {
+        if (fs.existsSync(downloadsPath)) {
+          const files = fs.readdirSync(downloadsPath)
+
+          for (const file of files) {
+            const absolutePath = path.join(downloadsPath, file)
+            const isExactOutput = exactOutputPath && absolutePath === exactOutputPath
+            const isPartFile = file.endsWith('.part') || file.endsWith('.ytdl')
+            const matchesTitle = titlePrefix && file.startsWith(titlePrefix)
+
+            // Delete if it's the exact output file OR if it's a part/fragment file matching the title
+            if (isExactOutput || (isPartFile && matchesTitle)) {
+              try {
+                fs.unlinkSync(absolutePath)
+                console.log(`[Delete] Removed file: ${absolutePath}`)
+              } catch (e) {
+                console.error(`[Delete] Failed to remove ${absolutePath}:`, e)
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[Delete] Failed to scan directory for cleanup:', err)
       }
     }
   })

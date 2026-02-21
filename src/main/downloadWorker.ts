@@ -191,7 +191,7 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
   // AND we sanitize the title variable if we use it in custom logic, though here we rely on yt-dlp's template
   // However, to be safe against 'title' containing path separators that yt-dlp might respect in some versions:
   const outputTemplate = '%(title)s.%(ext)s'
-  
+
   // Security: Ensure yt-dlp doesn't write outside the download directory
   // We add --restrict-filenames to force ASCII and no special chars
   // We also manually check the title if possible, but yt-dlp template replacement happens inside yt-dlp.
@@ -209,10 +209,11 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
 
   // Logic to determine if this is effectively an audio-only download
   // This helps us decide whether to convert thumbnail to JPG (embedded thumb issue in audio files)
-  const isAudioOnly = shouldExtractAudio ||
+  const isAudioOnly =
+    shouldExtractAudio ||
     ((formatSelection.includes('bestaudio') || formatSelection.includes('audio')) &&
-    !formatSelection.includes('bestvideo') &&
-    !formatSelection.includes('video'))
+      !formatSelection.includes('bestvideo') &&
+      !formatSelection.includes('video'))
 
   const ytDlpPath = settings.ytDlpPath || getYtDlpPath()
 
@@ -222,7 +223,6 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
     '--progress-template',
     'download:{"status":"downloading","downloaded_bytes":%(progress.downloaded_bytes)j,"total_bytes":%(progress.total_bytes|progress.total_bytes_estimate)j,"speed":%(progress.speed)j,"eta":%(progress.eta)j,"percent":"%(progress._percent_str)s","fragment_index":%(progress.fragment_index|null)j,"fragment_count":%(progress.fragment_count|null)j}',
     '--no-warnings',
-    '--no-write-thumbnail', // Explicitly prevent thumbnail downloads (we embed them)
     '--no-part', // Write directly to final filename — prevents .part files leaking to wrong directory
     '--restrict-filenames', // Security: Prevent path traversal and special chars
     '-f',
@@ -255,22 +255,13 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
   const ffmpegPath = settings.ffmpegPath || getFfmpegPath()
   const ffmpegDir = path.dirname(ffmpegPath)
 
-  // Check if ffprobe exists (required for --embed-thumbnail)
-  const ffprobePath = path.join(ffmpegDir, process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe')
-  const ffprobeExists = fs.existsSync(ffprobePath)
+  // Check if ffprobe exists (required for --embed-thumbnail by yt-dlp rigidly, but ffmpeg often handles it)
+  // We bypass the check because we only bundle ffmpeg, but we still want yt-dlp to try embedding.
+  args.unshift('--embed-thumbnail', '--add-metadata')
 
-  // Embed thumbnail and metadata if ffprobe is available (for both Video and Audio)
-  if (ffprobeExists) {
-    args.unshift('--embed-thumbnail', '--add-metadata')
-    
-    // For audio only, convert thumbnail to jpg to ensure compatibility
-    if (isAudioOnly) {
-       args.unshift('--convert-thumbnails', 'jpg')
-    }
-  } else {
-    // ffprobe not available - just add metadata without embedded thumbnail
-    console.warn('[Download] ffprobe not found, skipping thumbnail embedding')
-    args.unshift('--add-metadata')
+  // For audio only, convert thumbnail to jpg to ensure compatibility
+  if (isAudioOnly) {
+    args.unshift('--convert-thumbnails', 'jpg')
   }
 
   // Handle merge output format for video
@@ -389,21 +380,29 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
 
           if (isProgress) {
             // Treat as Progress JSON (from --progress-template)
-            
+
             // Calculate percent manually if string is missing or NA
             let percentValue = 0
             if (output.percent && typeof output.percent === 'string') {
-               const p = parseFloat(output.percent.replace('%', '').trim())
-               if (!isNaN(p)) percentValue = p
+              const p = parseFloat(output.percent.replace('%', '').trim())
+              if (!isNaN(p)) percentValue = p
             }
 
             // Fallback: Calculate from bytes if percent is 0/missing but we have total_bytes
-            if ((!percentValue || percentValue === 0) && output.downloaded_bytes && output.total_bytes) {
-               percentValue = (output.downloaded_bytes / output.total_bytes) * 100
+            if (
+              (!percentValue || percentValue === 0) &&
+              output.downloaded_bytes &&
+              output.total_bytes
+            ) {
+              percentValue = (output.downloaded_bytes / output.total_bytes) * 100
             }
             // Fallback 2: Estimate from fragments if available
-            if ((!percentValue || percentValue === 0) && output.fragment_index && output.fragment_count) {
-               percentValue = (output.fragment_index / output.fragment_count) * 100
+            if (
+              (!percentValue || percentValue === 0) &&
+              output.fragment_index &&
+              output.fragment_count
+            ) {
+              percentValue = (output.fragment_index / output.fragment_count) * 100
             }
 
             // Ensure percent is a number
@@ -558,17 +557,22 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
         console.log(`Download for ${download.id} cancelled.`)
       } else if (code === null) {
         // Process was killed by a signal (SIGTERM/SIGKILL) — not a real error
-        console.log(`[Download] Process killed by signal for ${download.id}, treating as interrupted.`)
+        console.log(
+          `[Download] Process killed by signal for ${download.id}, treating as interrupted.`
+        )
         if (!window.isDestroyed()) {
-          await db.updateDownload(download.id, { status: 'error', errorLogs: [
-            ...(currentDownload?.errorLogs || []),
-            {
-              timestamp: new Date(),
-              message: 'Download was interrupted (process killed). Try downloading again.',
-              type: 'general' as const,
-              details: fullStderr || 'Process terminated by signal'
-            }
-          ]})
+          await db.updateDownload(download.id, {
+            status: 'error',
+            errorLogs: [
+              ...(currentDownload?.errorLogs || []),
+              {
+                timestamp: new Date(),
+                message: 'Download was interrupted (process killed). Try downloading again.',
+                type: 'general' as const,
+                details: fullStderr || 'Process terminated by signal'
+              }
+            ]
+          })
           window.webContents.send('download-progress', { id: download.id, status: 'error' })
         }
       } else if (code === 0) {
@@ -600,11 +604,22 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
         // but --merge-output-format mp4 changes the actual file to .mp4
         if (finalPath && !fs.existsSync(finalPath)) {
           const baseName = finalPath.replace(/\.[^.]+$/, '') // strip extension
-          const alternativeExts = ['.mp4', '.mkv', '.webm', '.mp3', '.m4a', '.opus', '.ogg', '.flac']
+          const alternativeExts = [
+            '.mp4',
+            '.mkv',
+            '.webm',
+            '.mp3',
+            '.m4a',
+            '.opus',
+            '.ogg',
+            '.flac'
+          ]
           for (const ext of alternativeExts) {
             const altPath = baseName + ext
             if (fs.existsSync(altPath)) {
-              console.log(`[Download]   ✓ Found file with different extension: ${altPath} (was looking for ${path.basename(finalPath)})`)
+              console.log(
+                `[Download]   ✓ Found file with different extension: ${altPath} (was looking for ${path.basename(finalPath)})`
+              )
               finalPath = altPath
               break
             }

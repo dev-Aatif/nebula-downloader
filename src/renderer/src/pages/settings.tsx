@@ -83,13 +83,13 @@ export default function SettingsPage(): React.JSX.Element {
       setDepStatus((prev) =>
         prev
           ? {
-            ...prev,
-            ytDlp: {
-              ...prev.ytDlp,
-              updateAvailable: result.updateAvailable,
-              latestVersion: result.latestVersion
+              ...prev,
+              ytDlp: {
+                ...prev.ytDlp,
+                updateAvailable: result.updateAvailable,
+                latestVersion: result.latestVersion
+              }
             }
-          }
           : null
       )
       if (result.updateAvailable) {
@@ -112,13 +112,13 @@ export default function SettingsPage(): React.JSX.Element {
       setDepStatus((prev) =>
         prev
           ? {
-            ...prev,
-            ffmpeg: {
-              ...prev.ffmpeg,
-              updateAvailable: result.updateAvailable,
-              latestVersion: result.latestVersion
+              ...prev,
+              ffmpeg: {
+                ...prev.ffmpeg,
+                updateAvailable: result.updateAvailable,
+                latestVersion: result.latestVersion
+              }
             }
-          }
           : null
       )
       if (result.updateAvailable) {
@@ -343,14 +343,16 @@ export default function SettingsPage(): React.JSX.Element {
                   </span>
                 </h3>
                 <ChevronDownIcon
-                  className={`w-5 h-5 text-text-dim transition-transform duration-200 ${isAdvancedOpen ? 'rotate-180' : ''
-                    }`}
+                  className={`w-5 h-5 text-text-dim transition-transform duration-200 ${
+                    isAdvancedOpen ? 'rotate-180' : ''
+                  }`}
                 />
               </button>
 
               <div
-                className={`transition-all duration-300 ease-in-out overflow-hidden ${isAdvancedOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
-                  }`}
+                className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                  isAdvancedOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+                }`}
               >
                 <div className="p-6 pt-0 space-y-4">
                   <SettingsRow
@@ -392,9 +394,7 @@ export default function SettingsPage(): React.JSX.Element {
 
             {/* Dependencies */}
             <section className="bg-card/30 border border-border-glass rounded-lg p-6">
-              <h3 className="text-lg font-semibold mb-4 text-neon-blue">
-                Dependencies
-              </h3>
+              <h3 className="text-lg font-semibold mb-4 text-neon-blue">Dependencies</h3>
 
               <div className="space-y-3">
                 {/* yt-dlp Card */}
@@ -422,7 +422,9 @@ export default function SettingsPage(): React.JSX.Element {
                                 style={{ width: `${ytDlpUpdateProgress}%` }}
                               />
                             </div>
-                            <span className="text-xs text-text-dim w-8">{ytDlpUpdateProgress}%</span>
+                            <span className="text-xs text-text-dim w-8">
+                              {ytDlpUpdateProgress}%
+                            </span>
                           </div>
                         ) : depStatus.ytDlp.updateAvailable ? (
                           <button
