@@ -71,8 +71,6 @@ export type YTDLPFormat = {
 export type Settings = {
   downloadDirectory: string
   concurrency: number
-  ytDlpPath: string
-  ffmpegPath: string
   defaultFormat: string
   proxy: string
   lastPreset?: string // Remember last used quality preset

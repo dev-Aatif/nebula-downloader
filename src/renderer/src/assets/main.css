@@ -74,10 +74,11 @@
     height: var(--header-height);
     display: flex;
     align-items: center;
-    padding: 0 12px;
+    padding: 0 16px;
     gap: 8px;
-    background: #0d111a;
-    border-bottom: var(--border-glass);
+    background: rgba(13, 17, 26, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     z-index: 10;
   }
 
@@ -110,12 +111,12 @@
     border: none;
     background: transparent;
     color: var(--text-dim);
-    border-radius: 4px;
+    border-radius: 8px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
     font-size: 13px;
     gap: 6px;
   }
@@ -131,14 +132,15 @@
   }
 
   .tool-btn.primary {
-    background: rgba(0, 243, 255, 0.1);
+    background: rgba(0, 243, 255, 0.08);
     color: var(--neon-blue);
-    border: 1px solid rgba(0, 243, 255, 0.2);
+    border: 1px solid rgba(0, 243, 255, 0.15);
   }
 
   .tool-btn.primary:hover {
-    background: rgba(0, 243, 255, 0.2);
-    border-color: var(--neon-blue);
+    background: rgba(0, 243, 255, 0.18);
+    border-color: rgba(0, 243, 255, 0.4);
+    box-shadow: 0 0 12px rgba(0, 243, 255, 0.1);
   }
 
   .tool-btn.active {
@@ -154,11 +156,17 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    background: #161b22;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 6px;
-    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 4px 12px;
     width: 220px;
+    transition: all 0.2s ease;
+  }
+
+  .search-box:focus-within {
+    border-color: rgba(0, 243, 255, 0.4);
+    box-shadow: 0 0 0 2px rgba(0, 243, 255, 0.08);
   }
 
   .search-box input {

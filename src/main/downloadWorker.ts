@@ -233,7 +233,7 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
       !formatSelection.includes('bestvideo') &&
       !formatSelection.includes('video'))
 
-  const ytDlpPath = settings.ytDlpPath || getYtDlpPath()
+  const ytDlpPath = getYtDlpPath()
 
   const args = [
     '--newline', // Force newline output for progress
@@ -270,7 +270,7 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
 
   // Set ffmpeg path - use settings or bundled ffmpeg
   // Note: --ffmpeg-location expects the DIRECTORY containing ffmpeg and ffprobe
-  const ffmpegPath = settings.ffmpegPath || getFfmpegPath()
+  const ffmpegPath = getFfmpegPath()
   const ffmpegDir = path.dirname(ffmpegPath)
 
   // Check if ffprobe exists (required for --embed-thumbnail by yt-dlp rigidly, but ffmpeg often handles it)

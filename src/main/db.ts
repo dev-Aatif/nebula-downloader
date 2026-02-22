@@ -38,8 +38,6 @@ class DB {
       settings: {
         downloadDirectory: app.getPath('downloads'),
         concurrency: 3,
-        ytDlpPath: '',
-        ffmpegPath: '',
         defaultFormat: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
         proxy: ''
       }
@@ -113,8 +111,6 @@ class DB {
       db.data?.settings || {
         downloadDirectory: app.getPath('downloads'),
         concurrency: 3,
-        ytDlpPath: '',
-        ffmpegPath: '',
         defaultFormat: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
         proxy: ''
       }

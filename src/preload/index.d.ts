@@ -49,11 +49,15 @@ declare global {
       getDependencyStatus: () => Promise<DependencyStatus>
       getFullDependencyStatus: () => Promise<DependencyStatus>
       installDependencies: () => Promise<boolean>
+      installYtDlp: () => Promise<boolean>
+      installFfmpeg: () => Promise<boolean>
       checkYtDlpUpdate: () => Promise<UpdateCheckResult>
       checkFfmpegUpdate: () => Promise<UpdateCheckResult>
       updateYtDlp: () => Promise<{ success: boolean; version: string; error?: string }>
       runBackgroundUpdates: () => Promise<void>
       onSetupProgress: (callback: (percent: number) => void) => () => void
+      onYtDlpInstallProgress: (callback: (percent: number) => void) => () => void
+      onFfmpegInstallProgress: (callback: (percent: number) => void) => () => void
       onYtDlpUpdateProgress: (callback: (percent: number) => void) => () => void
 
       onDownloadProgress: (

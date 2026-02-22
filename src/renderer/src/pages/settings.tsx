@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react'
 import type { Settings } from '@main/types'
-import SettingsRow from '../components/SettingsRow'
 import ToggleSwitch from '../components/ToggleSwitch'
-import { CheckCircleIcon, ChevronDownIcon } from '../components/icons'
+import { CheckCircleIcon } from '../components/icons'
 
 const FORMAT_PRESETS = [
-  { label: 'Best Video (MP4)', value: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' },
+  {
+    label: 'Best Video (MP4)',
+    value: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
+  },
   { label: 'Best Video (MKV)', value: 'bestvideo+bestaudio/best' },
   { label: 'Best Audio (MP3)', value: 'bestaudio/best' },
   { label: 'MP4 (Simple)', value: 'mp4' },
@@ -29,8 +31,6 @@ export default function SettingsPage(): React.JSX.Element {
   const [settings, setSettings] = useState<Settings>({
     downloadDirectory: '',
     concurrency: 3,
-    ytDlpPath: '',
-    ffmpegPath: '',
     defaultFormat: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
     proxy: ''
   })
@@ -38,67 +38,114 @@ export default function SettingsPage(): React.JSX.Element {
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState<string>('')
   const [formatMode, setFormatMode] = useState('custom')
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
   const initialLoadRef = useRef(true)
 
-  // Dependency status state
+  // Dependency status
   const [depStatus, setDepStatus] = useState<DependencyStatus | null>(null)
   const [isCheckingYtDlp, setIsCheckingYtDlp] = useState(false)
   const [isCheckingFfmpeg, setIsCheckingFfmpeg] = useState(false)
-  const [isUpdatingYtDlp, setIsUpdatingYtDlp] = useState(false)
-  const [ytDlpUpdateProgress, setYtDlpUpdateProgress] = useState(0)
 
-  // Helper for notifications
+  // Individual install/update progress
+  const [isInstallingYtDlp, setIsInstallingYtDlp] = useState(false)
+  const [ytDlpProgress, setYtDlpProgress] = useState(0)
+  const [isInstallingFfmpeg, setIsInstallingFfmpeg] = useState(false)
+  const [ffmpegProgress, setFfmpegProgress] = useState(0)
+
   const showNotification = (msg: string): void => {
     setToastMessage(msg)
     setShowToast(true)
     setTimeout(() => setShowToast(false), 3000)
   }
 
-  // Load dependency status on mount
-  useEffect(() => {
-    window.api.getFullDependencyStatus().then(setDepStatus)
+  const refreshStatus = (): void => {
+    window.api.getDependencyStatus().then(setDepStatus)
+  }
 
-    // Listen for update progress
-    const unlistenProgress = window.api.onYtDlpUpdateProgress((percent) => {
-      setYtDlpUpdateProgress(percent)
-      if (percent >= 100) {
+  // Load dependency status FAST (filesystem only)
+  useEffect(() => {
+    refreshStatus()
+
+    const unsub1 = window.api.onYtDlpInstallProgress((p) => setYtDlpProgress(p))
+    const unsub2 = window.api.onFfmpegInstallProgress((p) => setFfmpegProgress(p))
+    // Also listen for yt-dlp update progress (reuse for update flow)
+    const unsub3 = window.api.onYtDlpUpdateProgress((p) => {
+      setYtDlpProgress(p)
+      if (p >= 100) {
         setTimeout(() => {
-          setIsUpdatingYtDlp(false)
-          window.api.getFullDependencyStatus().then(setDepStatus)
-          showNotification('Update complete')
+          setIsInstallingYtDlp(false)
+          refreshStatus()
+          showNotification('yt-dlp updated')
         }, 500)
       }
     })
 
-    return () => unlistenProgress()
+    return () => {
+      unsub1()
+      unsub2()
+      unsub3()
+    }
   }, [])
 
-  // Handlers for dependency updates
+  // ── Dependency handlers ──
+  const handleInstallYtDlp = async (): Promise<void> => {
+    setIsInstallingYtDlp(true)
+    setYtDlpProgress(0)
+    try {
+      const ok = await window.api.installYtDlp()
+      if (ok) {
+        showNotification('yt-dlp installed')
+      } else {
+        showNotification('yt-dlp installation failed')
+      }
+      refreshStatus()
+    } catch {
+      showNotification('Installation failed')
+    } finally {
+      setIsInstallingYtDlp(false)
+    }
+  }
+
+  const handleInstallFfmpeg = async (): Promise<void> => {
+    setIsInstallingFfmpeg(true)
+    setFfmpegProgress(0)
+    try {
+      const ok = await window.api.installFfmpeg()
+      if (ok) {
+        showNotification('FFmpeg installed')
+      } else {
+        showNotification('FFmpeg installation failed')
+      }
+      refreshStatus()
+    } catch {
+      showNotification('Installation failed')
+    } finally {
+      setIsInstallingFfmpeg(false)
+    }
+  }
+
   const handleCheckYtDlpUpdate = async (): Promise<void> => {
     setIsCheckingYtDlp(true)
     try {
-      const result = await window.api.checkYtDlpUpdate()
+      const r = await window.api.checkYtDlpUpdate()
       setDepStatus((prev) =>
         prev
           ? {
-              ...prev,
-              ytDlp: {
-                ...prev.ytDlp,
-                updateAvailable: result.updateAvailable,
-                latestVersion: result.latestVersion
-              }
+            ...prev,
+            ytDlp: {
+              ...prev.ytDlp,
+              updateAvailable: r.updateAvailable,
+              latestVersion: r.latestVersion
             }
+          }
           : null
       )
-      if (result.updateAvailable) {
-        showNotification(`Update available: v${result.latestVersion}`)
-      } else {
-        showNotification('yt-dlp is up to date')
-      }
-    } catch (err) {
-      console.error('Failed to check yt-dlp update:', err)
+      showNotification(
+        r.updateAvailable
+          ? `Update available: v${r.latestVersion}`
+          : 'yt-dlp is up to date'
+      )
+    } catch {
       showNotification('Check failed')
     } finally {
       setIsCheckingYtDlp(false)
@@ -108,26 +155,25 @@ export default function SettingsPage(): React.JSX.Element {
   const handleCheckFfmpegUpdate = async (): Promise<void> => {
     setIsCheckingFfmpeg(true)
     try {
-      const result = await window.api.checkFfmpegUpdate()
+      const r = await window.api.checkFfmpegUpdate()
       setDepStatus((prev) =>
         prev
           ? {
-              ...prev,
-              ffmpeg: {
-                ...prev.ffmpeg,
-                updateAvailable: result.updateAvailable,
-                latestVersion: result.latestVersion
-              }
+            ...prev,
+            ffmpeg: {
+              ...prev.ffmpeg,
+              updateAvailable: r.updateAvailable,
+              latestVersion: r.latestVersion
             }
+          }
           : null
       )
-      if (result.updateAvailable) {
-        showNotification(`Update available: v${result.latestVersion}`)
-      } else {
-        showNotification('FFmpeg is up to date')
-      }
-    } catch (err) {
-      console.error('Failed to check ffmpeg update:', err)
+      showNotification(
+        r.updateAvailable
+          ? `Update available: v${r.latestVersion}`
+          : 'FFmpeg is up to date'
+      )
+    } catch {
       showNotification('Check failed')
     } finally {
       setIsCheckingFfmpeg(false)
@@ -135,301 +181,313 @@ export default function SettingsPage(): React.JSX.Element {
   }
 
   const handleUpdateYtDlp = async (): Promise<void> => {
-    setIsUpdatingYtDlp(true)
-    setYtDlpUpdateProgress(0)
+    setIsInstallingYtDlp(true)
+    setYtDlpProgress(0)
     try {
       await window.api.updateYtDlp()
-    } catch (err) {
-      console.error('Failed to update yt-dlp:', err)
-      setIsUpdatingYtDlp(false)
+    } catch {
+      setIsInstallingYtDlp(false)
       showNotification('Update failed')
     }
   }
 
+  // ── Settings handlers ──
   useEffect(() => {
-    window.api.getSettings().then((loadedSettings: Settings) => {
-      setSettings(loadedSettings)
-      const found = FORMAT_PRESETS.find((p) => p.value === loadedSettings.defaultFormat)
-      if (found) {
-        setFormatMode(found.value)
-      } else {
-        setFormatMode('custom')
-      }
-      // Mark initial load complete after a tick
+    window.api.getSettings().then((s: Settings) => {
+      setSettings(s)
+      const found = FORMAT_PRESETS.find((p) => p.value === s.defaultFormat)
+      setFormatMode(found ? found.value : 'custom')
       setTimeout(() => {
         initialLoadRef.current = false
       }, 100)
     })
   }, [])
 
-  // Debounced auto-save effect
   useEffect(() => {
-    // Skip auto-save on initial load
     if (initialLoadRef.current) return
-
     setHasChanges(true)
-    const debounceTimer = setTimeout(async () => {
+    const t = setTimeout(async () => {
       setSaving(true)
       try {
         await window.api.updateSettings(settings)
         showNotification('Settings saved')
         setHasChanges(false)
-      } catch (error) {
-        console.error('Failed to auto-save settings:', error)
+      } catch (e) {
+        console.error('Failed to auto-save:', e)
       } finally {
         setSaving(false)
       }
-    }, 1000) // 1 second debounce
-
-    return () => clearTimeout(debounceTimer)
+    }, 1000)
+    return () => clearTimeout(t)
   }, [settings])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ): void => {
     const { name, value } = e.target
     const type = e.target.getAttribute('type')
-    setSettings((prevSettings) => ({
-      ...prevSettings,
+    setSettings((p) => ({
+      ...p,
       [name]: type === 'number' ? parseInt(value) : value
     }))
   }
 
-  const handleFormatModeChange = (e: React.ChangeEvent<HTMLSelectElement>): void => {
+  const handleFormatModeChange = (
+    e: React.ChangeEvent<HTMLSelectElement>
+  ): void => {
     const mode = e.target.value
     setFormatMode(mode)
     if (mode !== 'custom') {
-      setSettings((prev) => ({ ...prev, defaultFormat: mode }))
+      setSettings((p) => ({ ...p, defaultFormat: mode }))
     }
   }
 
-  const handleBrowseDirectory = async (name: keyof Settings): Promise<void> => {
-    const selectedPath = await window.api.openDirectoryDialog()
-    if (selectedPath) {
-      setSettings((prevSettings) => ({
-        ...prevSettings,
-        [name]: selectedPath
-      }))
-    }
+  const handleBrowseDirectory = async (): Promise<void> => {
+    const path = await window.api.openDirectoryDialog()
+    if (path) setSettings((p) => ({ ...p, downloadDirectory: path }))
   }
 
-  const handleBrowseFile = async (name: keyof Settings): Promise<void> => {
-    const selectedPath = await window.api.openFileDialog()
-    if (selectedPath) {
-      setSettings((prevSettings) => ({
-        ...prevSettings,
-        [name]: selectedPath
-      }))
-    }
-  }
+  // ── Shared classes ──
+  const inputCls =
+    'w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-text-main focus:border-neon-blue/50 focus:outline-none focus:ring-1 focus:ring-neon-blue/20 transition-all'
+  const smallBtn =
+    'text-[11px] px-2.5 py-1 rounded-md bg-white/[0.04] hover:bg-white/[0.08] text-text-dim border border-white/[0.06] transition-colors'
 
-  const renderInput = (
-    name: keyof Settings,
-    type = 'text',
-    readOnly = false,
-    placeholder = ''
-  ): React.ReactElement => (
-    <input
-      type={type}
-      name={name as string}
-      value={settings[name] as string | number}
-      onChange={handleChange}
-      readOnly={readOnly}
-      placeholder={placeholder}
-      className="bg-[#0d111a] border border-white/10 rounded-md p-2 text-sm w-full focus:border-neon-blue focus:outline-none transition-colors"
-    />
+  // ── Progress bar component ──
+  const ProgressBar = ({
+    percent,
+    label
+  }: {
+    percent: number
+    label: string
+  }): React.ReactElement => (
+    <div className="mt-2 px-1">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] text-text-dim">{label}</span>
+        <span className="text-[10px] text-text-dim font-mono">
+          {percent}%
+        </span>
+      </div>
+      <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden">
+        <div
+          className="h-full bg-neon-blue rounded-full transition-all duration-300"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
   )
 
   return (
     <div className="flex flex-col h-full bg-bg-deep relative">
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto p-8 pb-24">
-        <div className="max-w-3xl mx-auto space-y-8">
+      <style>{`
+        .settings-scroll::-webkit-scrollbar { width: 6px; }
+        .settings-scroll::-webkit-scrollbar-track { background: transparent; }
+        .settings-scroll::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.08);
+          border-radius: 3px;
+        }
+        .settings-scroll::-webkit-scrollbar-thumb:hover {
+          background: rgba(255,255,255,0.15);
+        }
+      `}</style>
+
+      <div className="flex-1 overflow-y-auto settings-scroll p-6 md:p-8 pb-24">
+        <div className="max-w-2xl mx-auto space-y-6">
           {/* Header */}
-          <div>
-            <h2 className="text-2xl font-bold text-text-main">Settings</h2>
+          <div className="mb-2">
+            <h2 className="text-2xl font-bold text-text-main tracking-tight">
+              Settings
+            </h2>
             <p className="text-text-dim text-sm mt-1">
-              Manage application preferences and configurations.
+              Configure your preferences
             </p>
           </div>
 
-          {/* Groups */}
-          <div className="space-y-6">
-            {/* Behavior */}
-            <section className="bg-card/30 border border-border-glass rounded-lg p-6">
-              <h3 className="text-lg font-semibold mb-4 text-neon-blue flex items-center gap-2">
-                Behavior
+          {/* ── General ── */}
+          <section className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
+            <div className="px-5 py-3 border-b border-white/[0.06]">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-text-dim">
+                General
               </h3>
-              <SettingsRow
-                label="Auto-Download"
-                description="Skip modal and download immediately when URL is detected"
-              >
+            </div>
+            <div className="divide-y divide-white/[0.06]">
+              {/* Download Directory */}
+              <div className="px-5 py-4 flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-text-main">
+                    Download Directory
+                  </div>
+                  <div className="text-xs text-text-dim mt-0.5 truncate">
+                    {settings.downloadDirectory || 'Not set'}
+                  </div>
+                </div>
+                <button
+                  onClick={handleBrowseDirectory}
+                  className="shrink-0 px-4 py-1.5 text-xs font-medium rounded-lg bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08] text-text-main transition-colors"
+                >
+                  Change
+                </button>
+              </div>
+
+              {/* Auto-Download */}
+              <div className="px-5 py-4 flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-sm font-medium text-text-main">
+                    Auto-Download
+                  </div>
+                  <div className="text-xs text-text-dim mt-0.5">
+                    Skip modal and download immediately
+                  </div>
+                </div>
                 <ToggleSwitch
                   checked={settings.autoDownload || false}
-                  onChange={(checked) => setSettings((s) => ({ ...s, autoDownload: checked }))}
+                  onChange={(c) =>
+                    setSettings((s) => ({ ...s, autoDownload: c }))
+                  }
                 />
-              </SettingsRow>
-            </section>
+              </div>
 
-            {/* Downloads */}
-            <section className="bg-card/30 border border-border-glass rounded-lg p-6">
-              <h3 className="text-lg font-semibold mb-4 text-neon-blue">Downloads</h3>
-
-              <SettingsRow label="Download Directory" description="Where files will be saved.">
-                <div className="flex gap-2 w-full">
-                  {renderInput('downloadDirectory', 'text', true, 'Select a folder...')}
-                  <button
-                    onClick={() => handleBrowseDirectory('downloadDirectory')}
-                    className="tool-btn primary px-4"
-                  >
-                    Browse
-                  </button>
-                </div>
-              </SettingsRow>
-
-              <SettingsRow label="Max Concurrency" description="Simultaneous downloads allowed.">
-                <div className="w-24">{renderInput('concurrency', 'number')}</div>
-              </SettingsRow>
-
-              <SettingsRow
-                label="Speed Limit"
-                description="Limit download bandwidth (0 = unlimited)"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="w-24">
-                    <input
-                      type="number"
-                      name="speedLimit"
-                      value={settings.speedLimit || 0}
-                      onChange={handleChange}
-                      min="0"
-                      className="bg-[#0d111a] border border-white/10 rounded-md p-2 text-sm w-full focus:border-neon-blue focus:outline-none transition-colors"
-                    />
+              {/* Preferred Format */}
+              <div className="px-5 py-4">
+                <div className="mb-3">
+                  <div className="text-sm font-medium text-text-main">
+                    Preferred Format
                   </div>
-                  <span className="text-text-dim text-sm">KB/s</span>
+                  <div className="text-xs text-text-dim mt-0.5">
+                    Default quality and format
+                  </div>
                 </div>
-              </SettingsRow>
+                <select
+                  className={inputCls}
+                  value={formatMode}
+                  onChange={handleFormatModeChange}
+                >
+                  {FORMAT_PRESETS.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+                {formatMode === 'custom' && (
+                  <input
+                    type="text"
+                    name="defaultFormat"
+                    value={settings.defaultFormat}
+                    onChange={handleChange}
+                    placeholder="e.g., bestvideo+bestaudio/best"
+                    className={`mt-2 ${inputCls}`}
+                  />
+                )}
+              </div>
+            </div>
+          </section>
 
-              <SettingsRow
-                label="Preferred Format"
-                description="Select a preset or define a custom yt-dlp format string."
-              >
-                <div className="flex flex-col gap-2 w-full">
-                  <select
-                    className="bg-[#0d111a] border border-white/10 rounded-md p-2 text-sm text-text-main focus:border-neon-blue focus:outline-none w-full"
-                    value={formatMode}
-                    onChange={handleFormatModeChange}
-                  >
-                    {FORMAT_PRESETS.map((p) => (
-                      <option key={p.value} value={p.value}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                  {formatMode === 'custom' &&
-                    renderInput('defaultFormat', 'text', false, 'e.g., bestvideo+bestaudio/best')}
+          {/* ── Downloads ── */}
+          <section className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
+            <div className="px-5 py-3 border-b border-white/[0.06]">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-text-dim">
+                Downloads
+              </h3>
+            </div>
+            <div className="divide-y divide-white/[0.06]">
+              <div className="px-5 py-4 flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-sm font-medium text-text-main">
+                    Simultaneous Downloads
+                  </div>
+                  <div className="text-xs text-text-dim mt-0.5">
+                    Max parallel downloads
+                  </div>
                 </div>
-              </SettingsRow>
-            </section>
-
-            {/* Advanced - Collapsible */}
-            <section className="bg-card/30 border border-border-glass rounded-lg overflow-hidden">
-              <button
-                onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
-                className="w-full p-6 flex items-center justify-between hover:bg-white/5 transition-colors"
-              >
-                <h3 className="text-lg font-semibold text-neon-blue flex items-center gap-2">
-                  Advanced
-                  <span className="text-xs font-normal text-text-dim bg-white/10 px-2 py-0.5 rounded">
-                    {isAdvancedOpen ? 'Click to collapse' : 'Click to expand'}
-                  </span>
-                </h3>
-                <ChevronDownIcon
-                  className={`w-5 h-5 text-text-dim transition-transform duration-200 ${
-                    isAdvancedOpen ? 'rotate-180' : ''
-                  }`}
+                <input
+                  type="number"
+                  name="concurrency"
+                  value={settings.concurrency}
+                  onChange={handleChange}
+                  min="1"
+                  max="10"
+                  className="w-16 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5 text-sm text-text-main text-center focus:border-neon-blue/50 focus:outline-none focus:ring-1 focus:ring-neon-blue/20 transition-all"
                 />
-              </button>
+              </div>
 
-              <div
-                className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                  isAdvancedOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
-                }`}
-              >
-                <div className="p-6 pt-0 space-y-4">
-                  <SettingsRow
-                    label="yt-dlp Path"
-                    description="Manual override for yt-dlp executable (advanced only)."
-                  >
-                    <div className="flex gap-2 w-full">
-                      {renderInput('ytDlpPath', 'text', true, 'Default (Auto-managed)')}
-                      <button
-                        onClick={() => handleBrowseFile('ytDlpPath')}
-                        className="tool-btn primary px-4"
-                      >
-                        Browse
-                      </button>
-                    </div>
-                  </SettingsRow>
-
-                  <SettingsRow
-                    label="FFmpeg Path"
-                    description="Manual override for FFmpeg executable (advanced only)."
-                  >
-                    <div className="flex gap-2 w-full">
-                      {renderInput('ffmpegPath', 'text', true, 'Default (Bundled)')}
-                      <button
-                        onClick={() => handleBrowseFile('ffmpegPath')}
-                        className="tool-btn primary px-4"
-                      >
-                        Browse
-                      </button>
-                    </div>
-                  </SettingsRow>
-
-                  <SettingsRow label="Proxy" description="HTTP/HTTPS/SOCKS proxy URL.">
-                    {renderInput('proxy', 'text', false, 'http://user:pass@host:port')}
-                  </SettingsRow>
+              <div className="px-5 py-4 flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-sm font-medium text-text-main">
+                    Speed Limit
+                  </div>
+                  <div className="text-xs text-text-dim mt-0.5">
+                    0 = unlimited
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    name="speedLimit"
+                    value={settings.speedLimit || 0}
+                    onChange={handleChange}
+                    min="0"
+                    className="w-20 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5 text-sm text-text-main text-center focus:border-neon-blue/50 focus:outline-none focus:ring-1 focus:ring-neon-blue/20 transition-all"
+                  />
+                  <span className="text-xs text-text-dim">KB/s</span>
                 </div>
               </div>
-            </section>
 
-            {/* Dependencies */}
-            <section className="bg-card/30 border border-border-glass rounded-lg p-6">
-              <h3 className="text-lg font-semibold mb-4 text-neon-blue">Dependencies</h3>
+              <div className="px-5 py-4">
+                <div className="mb-2">
+                  <div className="text-sm font-medium text-text-main">
+                    Proxy
+                  </div>
+                  <div className="text-xs text-text-dim mt-0.5">
+                    HTTP/HTTPS/SOCKS proxy URL
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  name="proxy"
+                  value={settings.proxy}
+                  onChange={handleChange}
+                  placeholder="http://user:pass@host:port"
+                  className={`${inputCls} placeholder-text-dim/40`}
+                />
+              </div>
+            </div>
+          </section>
 
-              <div className="space-y-3">
-                {/* yt-dlp Card */}
-                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+          {/* ── Dependencies ── */}
+          <section className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
+            <div className="px-5 py-3 border-b border-white/[0.06]">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-text-dim">
+                Dependencies
+              </h3>
+            </div>
+            <div className="p-5 space-y-3">
+              {/* ── yt-dlp Card ── */}
+              <div className="rounded-lg bg-white/[0.02] border border-white/[0.04] p-3.5">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-neon-blue/20 flex items-center justify-center">
-                      <span className="text-lg">📥</span>
+                    <div className="w-9 h-9 rounded-lg bg-neon-blue/10 flex items-center justify-center text-base">
+                      📥
                     </div>
                     <div>
-                      <div className="font-medium text-sm">yt-dlp</div>
-                      <div className="text-xs text-text-dim">Download engine</div>
+                      <div className="text-sm font-medium text-text-main">
+                        yt-dlp
+                      </div>
+                      <div className="text-[11px] text-text-dim">
+                        Download engine
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {depStatus?.ytDlp.installed ? (
                       <>
-                        <span className="text-xs text-neon-green bg-neon-green/10 px-2 py-1 rounded">
+                        <span className="text-[11px] text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-md font-mono">
                           v{depStatus.ytDlp.version}
                         </span>
-                        {isUpdatingYtDlp ? (
-                          <div className="flex items-center gap-2 min-w-[120px]">
-                            <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-neon-blue transition-all"
-                                style={{ width: `${ytDlpUpdateProgress}%` }}
-                              />
-                            </div>
-                            <span className="text-xs text-text-dim w-8">
-                              {ytDlpUpdateProgress}%
-                            </span>
-                          </div>
-                        ) : depStatus.ytDlp.updateAvailable ? (
+                        {depStatus.ytDlp.updateAvailable ? (
                           <button
                             onClick={handleUpdateYtDlp}
-                            className="tool-btn primary text-xs px-3 py-1.5"
+                            disabled={isInstallingYtDlp}
+                            className="text-[11px] px-2.5 py-1 rounded-md bg-neon-blue/10 hover:bg-neon-blue/20 text-neon-blue border border-neon-blue/20 transition-colors"
                           >
                             Update to v{depStatus.ytDlp.latestVersion}
                           </button>
@@ -437,80 +495,116 @@ export default function SettingsPage(): React.JSX.Element {
                           <button
                             onClick={handleCheckYtDlpUpdate}
                             disabled={isCheckingYtDlp}
-                            className="tool-btn text-xs px-3 py-1.5"
+                            className={smallBtn}
                           >
                             {isCheckingYtDlp ? '...' : 'Check'}
                           </button>
                         )}
                       </>
                     ) : (
-                      <span className="text-xs text-red-400">Not installed</span>
+                      <>
+                        <span className="text-[11px] text-red-400/80 bg-red-400/10 px-2 py-0.5 rounded-md">
+                          Not installed
+                        </span>
+                        <button
+                          onClick={handleInstallYtDlp}
+                          disabled={isInstallingYtDlp}
+                          className="text-[11px] px-3 py-1 rounded-md bg-neon-blue/10 hover:bg-neon-blue/20 text-neon-blue border border-neon-blue/20 transition-colors"
+                        >
+                          Install
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
+                {isInstallingYtDlp && (
+                  <ProgressBar
+                    percent={ytDlpProgress}
+                    label="Downloading yt-dlp..."
+                  />
+                )}
+              </div>
 
-                {/* FFmpeg Card */}
-                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+              {/* ── FFmpeg Card ── */}
+              <div className="rounded-lg bg-white/[0.02] border border-white/[0.04] p-3.5">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                      <span className="text-lg">🎬</span>
+                    <div className="w-9 h-9 rounded-lg bg-purple-500/10 flex items-center justify-center text-base">
+                      🎬
                     </div>
                     <div>
-                      <div className="font-medium text-sm">FFmpeg</div>
-                      <div className="text-xs text-text-dim">Media processing</div>
+                      <div className="text-sm font-medium text-text-main">
+                        FFmpeg
+                      </div>
+                      <div className="text-[11px] text-text-dim">
+                        Media processing
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {depStatus?.ffmpeg.installed ? (
                       <>
-                        <span className="text-xs text-neon-green bg-neon-green/10 px-2 py-1 rounded">
-                          v{depStatus.ffmpeg.version?.split('-')[0] || 'unknown'}
+                        <span className="text-[11px] text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-md font-mono">
+                          v
+                          {depStatus.ffmpeg.version?.split('-')[0] ||
+                            'unknown'}
                         </span>
                         {depStatus.ffmpeg.updateAvailable ? (
-                          <>
-                            <span className="text-xs text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded">
-                              v{depStatus.ffmpeg.latestVersion}
-                            </span>
-                            <a
-                              href="https://ffmpeg.org/download.html"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="tool-btn primary text-xs px-3 py-1.5"
-                            >
-                              Download
-                            </a>
-                          </>
+                          <span className="text-[11px] text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-md">
+                            v{depStatus.ffmpeg.latestVersion} available
+                          </span>
                         ) : (
                           <button
                             onClick={handleCheckFfmpegUpdate}
                             disabled={isCheckingFfmpeg}
-                            className="tool-btn text-xs px-3 py-1.5"
+                            className={smallBtn}
                           >
                             {isCheckingFfmpeg ? '...' : 'Check'}
                           </button>
                         )}
                       </>
                     ) : (
-                      <span className="text-xs text-red-400">Not found</span>
+                      <>
+                        <span className="text-[11px] text-red-400/80 bg-red-400/10 px-2 py-0.5 rounded-md">
+                          Not installed
+                        </span>
+                        <button
+                          onClick={handleInstallFfmpeg}
+                          disabled={isInstallingFfmpeg}
+                          className="text-[11px] px-3 py-1 rounded-md bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 transition-colors"
+                        >
+                          Install
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
+                {isInstallingFfmpeg && (
+                  <ProgressBar
+                    percent={ffmpegProgress}
+                    label="Downloading FFmpeg..."
+                  />
+                )}
               </div>
 
-              <p className="text-xs text-text-dim mt-3">
-                yt-dlp updates automatically. FFmpeg is bundled with the app.
+              <p className="text-[11px] text-text-dim/60 pt-1">
+                Auto-managed. Click Check to look for updates.
               </p>
-            </section>
-          </div>
+            </div>
+          </section>
         </div>
       </div>
 
-      {/* Sticky Footer - Auto-save status */}
-      <div className="absolute bottom-0 left-0 right-0 bg-[#0d111a]/95 backdrop-blur border-t border-border-glass p-4 flex items-center justify-end z-20">
-        <div className="text-sm px-4 flex items-center gap-2">
+      {/* Sticky Footer */}
+      <div className="absolute bottom-0 left-0 right-0 bg-bg-deep/95 backdrop-blur-sm border-t border-white/[0.06] px-6 py-3 flex items-center justify-end z-20">
+        <div className="text-xs flex items-center gap-2">
           {saving && (
-            <span className="text-neon-blue flex items-center gap-2">
-              <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+            <span className="text-neon-blue flex items-center gap-1.5">
+              <svg
+                className="w-3.5 h-3.5 animate-spin"
+                viewBox="0 0 24 24"
+                fill="none"
+              >
                 <circle
                   className="opacity-25"
                   cx="12"
@@ -525,19 +619,20 @@ export default function SettingsPage(): React.JSX.Element {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 />
               </svg>
-              Saving...
+              Saving…
             </span>
           )}
           {!saving && showToast && (
-            <span className="text-neon-green flex items-center gap-2 animate-in fade-in">
-              <CheckCircleIcon className="w-4 h-4" /> {toastMessage || 'Saved'}
+            <span className="text-emerald-400 flex items-center gap-1.5">
+              <CheckCircleIcon className="w-3.5 h-3.5" />{' '}
+              {toastMessage || 'Saved'}
             </span>
           )}
           {!saving && !showToast && hasChanges && (
-            <span className="text-text-dim flex items-center gap-2">Unsaved changes</span>
+            <span className="text-text-dim">Unsaved changes</span>
           )}
           {!saving && !showToast && !hasChanges && (
-            <span className="text-text-dim/50 flex items-center gap-2">
+            <span className="text-text-dim/40">
               All changes saved automatically
             </span>
           )}

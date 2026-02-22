@@ -18,18 +18,14 @@ Desktop.ini
 # Build directories
 dist/
 out/
-build/
 release/
 
 # Electron-builder output
 *.dmg
-*.zip
-*.exe
 *.snap
 *.AppImage
 *.deb
 *.rpm
-*.tar.gz
 
 # Environment variables
 .env
@@ -62,7 +58,6 @@ logs/
 *.tsbuildinfo
 
 # Project Specific
-# Binaries (yt-dlp, ffmpeg) should not be committed if they are large or platform specific downloads
 bin/
 resources/bin/
 
@@ -76,12 +71,14 @@ temp/
 # Testing/Coverage
 coverage/
 .nyc_output/
+
 # Linting
 .eslintcache
 
 # Temporary and Output
 typecheck-output.txt
 
+# Design assets
 designs/
 
 # Downloaded archives (ffmpeg, etc.)
@@ -92,13 +89,13 @@ ffmpeg-linux.tar.xz
 # Helper scripts (development only)
 scripts/
 
+# Text dumps
 *.txt
-#Tests
-tests/adversarial/
-tests/
-Tests/
 
-#temp files
+# Tests
+tests/
+
+# Temp media files
 *.part
 *.mp3
 *.m4a
@@ -110,7 +107,6 @@ Tests/
 *.flac
 *.aac
 *.wma
-*.m4a
 *.m4b
 *.m4v
 *.mov
@@ -119,4 +115,8 @@ Tests/
 *.flv
 *.mkv
 
+# AppImage extracted
 squashfs-root/
+
+# AI assistant
+.gemini/

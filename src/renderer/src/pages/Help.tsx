@@ -1,348 +1,304 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { HelpIcon, DownloadIcon } from '../components/icons'
 import logo from '../assets/logo.png'
 
 export default function Help(): React.JSX.Element {
+  const [openFaq, setOpenFaq] = useState<number | null>(null)
+
   const faqs = [
     {
-      question: 'What platforms does Nebula support?',
-      answer:
-        'Nebula Downloader supports downloads from over 1000 websites including YouTube, Vimeo, Dailymotion, and many more. The app uses yt-dlp under the hood, which provides extensive platform support.'
+      q: 'What platforms does Nebula support?',
+      a: 'Over 1000 websites including YouTube, Vimeo, Dailymotion, and more. Powered by yt-dlp.'
     },
     {
-      question: 'How do I change download quality?',
-      answer:
-        'When adding a new download, you can click "Advanced Options" to select specific quality and format preferences. You can also set a default quality in Settings.'
+      q: 'How do I change download quality?',
+      a: 'Click "Advanced Options" when adding a download, or set a default quality in Settings → Preferred Format.'
     },
     {
-      question: 'Where are my files saved?',
-      answer:
-        'By default, files are saved to your system\'s Downloads folder. You can change this location in Settings → Download Directory. Use the "Show in Folder" button to quickly open the file location.'
+      q: 'Where are my files saved?',
+      a: 'Default: your system Downloads folder. Change it in Settings → Download Directory.'
     },
     {
-      question: 'Why is my download failing?',
-      answer: (
-        <>
-          Common causes of download failures:
-          <ul className="list-disc list-inside ml-4 mt-2 space-y-1">
-            <li>Invalid or expired URL</li>
-            <li>Network connectivity issues</li>
-            <li>Video is private or region-locked</li>
-            <li>Insufficient disk space</li>
-          </ul>
-          Check the download details for specific error messages.
-        </>
-      )
+      q: 'Why is my download failing?',
+      a: 'Common causes: invalid/expired URL, network issues, private/region-locked video, or insufficient disk space. Check download details for specifics.'
     },
     {
-      question: 'Can I download entire playlists?',
-      answer:
-        "Yes! Simply paste a playlist URL, and Nebula will detect it automatically. You'll be prompted to select which videos from the playlist you want to download."
+      q: 'Can I download playlists?',
+      a: "Yes! Paste a playlist URL and Nebula detects it automatically. You'll choose which videos to download."
     },
     {
-      question: 'How does the download queue work?',
-      answer: (
-        <div className="space-y-3">
-          <p>The download queue manages multiple downloads efficiently:</p>
-          <ul className="list-disc list-inside ml-4 space-y-1">
-            <li>
-              <strong>Concurrent Downloads:</strong> By default, up to 3 downloads run
-              simultaneously (configurable in Settings)
-            </li>
-            <li>
-              <strong>Queued Status:</strong> New downloads are queued if the limit is reached
-            </li>
-            <li>
-              <strong>Auto-Start:</strong> Queued downloads start automatically when active
-              downloads complete
-            </li>
-            <li>
-              <strong>Pause All:</strong> Pausing suspends all active downloads; queued items remain
-              waiting
-            </li>
-          </ul>
-        </div>
-      )
+      q: 'How does the queue work?',
+      a: 'Up to 3 downloads run simultaneously (configurable). New downloads queue automatically and start when slots free up.'
+    }
+  ]
+
+  const shortcuts = [
+    { action: 'New Download', key: 'Ctrl+N' },
+    { action: 'Open Settings', key: 'Ctrl+,' },
+    { action: 'View History', key: 'Ctrl+H' }
+  ]
+
+  const credits = [
+    {
+      icon: '📥',
+      name: 'yt-dlp',
+      license: 'Unlicense',
+      desc: 'Download engine powering all media downloads'
+    },
+    {
+      icon: '🎬',
+      name: 'FFmpeg',
+      license: 'LGPL/GPL',
+      desc: 'Audio/video processing and conversion'
+    },
+    {
+      icon: '⚡',
+      name: 'Electron',
+      license: 'MIT',
+      desc: 'Cross-platform desktop app framework'
+    },
+    {
+      icon: '⚛️',
+      name: 'React',
+      license: 'MIT',
+      desc: 'UI component library'
+    },
+    {
+      icon: '🎨',
+      name: 'Tailwind CSS',
+      license: 'MIT',
+      desc: 'Utility-first CSS framework'
     }
   ]
 
   return (
-    <div className="flex flex-col h-full bg-bg-deep overflow-y-auto">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-br from-neon-blue/10 to-neon-purple/10 border-b border-white/10 p-12">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-16 h-16 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 overflow-hidden">
-              <img src={logo} alt="Nebula" className="w-12 h-12 object-contain" />
+    <div className="flex flex-col h-full bg-bg-deep relative">
+      <style>{`
+        .help-scroll::-webkit-scrollbar { width: 6px; }
+        .help-scroll::-webkit-scrollbar-track { background: transparent; }
+        .help-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+        .help-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+      `}</style>
+
+      <div className="flex-1 overflow-y-auto help-scroll">
+        {/* Hero */}
+        <div className="bg-gradient-to-br from-neon-blue/[0.06] to-purple-500/[0.06] border-b border-white/[0.06] px-8 py-10">
+          <div className="max-w-3xl mx-auto flex items-center gap-4">
+            <div className="w-14 h-14 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center overflow-hidden shrink-0">
+              <img
+                src={logo}
+                alt="Nebula"
+                className="w-10 h-10 object-contain"
+              />
             </div>
             <div>
-              <h1 className="text-4xl font-bold text-text-main">Help & Support</h1>
-              <p className="text-text-dim mt-2">
-                Everything you need to get started with Nebula Downloader
+              <h1 className="text-2xl font-bold text-text-main">
+                Help &amp; Support
+              </h1>
+              <p className="text-text-dim text-sm mt-0.5">
+                Everything you need to get started
               </p>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-4xl mx-auto px-8 py-12 space-y-12">
-        {/* How to Use Section */}
-        <section>
-          <h2 className="text-2xl font-bold text-text-main mb-6 flex items-center gap-3">
-            <DownloadIcon className="w-6 h-6 text-neon-blue" />
-            How to Use
-          </h2>
-          <div className="space-y-6">
-            <div className="bg-card/30 border border-border-glass rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-text-main mb-3">1. Adding a Download</h3>
-              <ul className="list-disc list-inside space-y-2 text-text-dim ml-4">
-                <li>
-                  Click the <span className="text-neon-blue">"New File"</span> button in the toolbar
-                </li>
-                <li>Paste the URL of the video you want to download</li>
-                <li>Select quality options (optional)</li>
-                <li>Click "Download" to start</li>
-                <li>
-                  <strong>Keyboard shortcut:</strong>{' '}
-                  <kbd className="px-2 py-1 bg-white/10 rounded text-xs">Ctrl+N</kbd>
-                </li>
-              </ul>
+        <div className="max-w-3xl mx-auto px-8 py-8 space-y-8">
+          {/* Quick Start */}
+          <section className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
+            <div className="px-5 py-3 border-b border-white/[0.06]">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-text-dim flex items-center gap-2">
+                <DownloadIcon className="w-3.5 h-3.5 text-neon-blue" />
+                Quick Start
+              </h3>
             </div>
-
-            <div className="bg-card/30 border border-border-glass rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-text-main mb-3">2. Managing Downloads</h3>
-              <ul className="list-disc list-inside space-y-2 text-text-dim ml-4">
-                <li>
-                  <strong>Pause:</strong> Click the pause button to temporarily stop a download
-                </li>
-                <li>
-                  <strong>Resume:</strong> Click the play button to continue a paused download
-                </li>
-                <li>
-                  <strong>Delete:</strong> Click the trash icon to remove a download
-                </li>
-                <li>
-                  <strong>Multi-Select:</strong> Click checkboxes to select multiple downloads for
-                  bulk operations
-                </li>
-                <li>
-                  <strong>Show in Folder:</strong> Click the folder icon to open the download
-                  location
-                </li>
-              </ul>
-            </div>
-
-            <div className="bg-card/30 border border-border-glass rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-text-main mb-3">3. Viewing History</h3>
-              <ul className="list-disc list-inside space-y-2 text-text-dim ml-4">
-                <li>
-                  Navigate to the <span className="text-neon-blue">"History"</span> page from the
-                  sidebar
-                </li>
-                <li>View all completed downloads with statistics</li>
-                <li>Search and filter your download history</li>
-                <li>Export your history as JSON or CSV</li>
-                <li>
-                  <strong>Keyboard shortcut:</strong>{' '}
-                  <kbd className="px-2 py-1 bg-white/10 rounded text-xs">Ctrl+H</kbd>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </section>
-
-        {/* FAQ Section */}
-        <section>
-          <h2 className="text-2xl font-bold text-text-main mb-6 flex items-center gap-3">
-            <HelpIcon className="w-6 h-6 text-neon-blue" />
-            Frequently Asked Questions
-          </h2>
-          <div className="space-y-4">
-            {faqs.map((faq, index) => (
-              <div key={index} className="bg-card/30 border border-border-glass rounded-lg p-6">
-                <h3 className="font-semibold text-text-main mb-3 flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-neon-blue"></span>
-                  {faq.question}
-                </h3>
-                <div className="text-text-dim text-sm leading-relaxed pl-3.5 border-l border-border-glass/30">
-                  {faq.answer}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Keyboard Shortcuts */}
-        <section>
-          <h2 className="text-2xl font-bold text-text-main mb-6">Keyboard Shortcuts</h2>
-          <div className="bg-card/30 border border-border-glass rounded-lg overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-white/5 border-b border-white/10">
-                <tr>
-                  <th className="text-left p-4 text-sm font-semibold text-text-dim uppercase">
-                    Action
-                  </th>
-                  <th className="text-left p-4 text-sm font-semibold text-text-dim uppercase">
-                    Shortcut
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                <tr className="hover:bg-white/5 transition-colors">
-                  <td className="p-4 text-text-main">New Download</td>
-                  <td className="p-4">
-                    <kbd className="px-3 py-1 bg-white/10 rounded text-sm">Ctrl+N</kbd>
-                  </td>
-                </tr>
-                <tr className="hover:bg-white/5 transition-colors">
-                  <td className="p-4 text-text-main">Open Settings</td>
-                  <td className="p-4">
-                    <kbd className="px-3 py-1 bg-white/10 rounded text-sm">Ctrl+,</kbd>
-                  </td>
-                </tr>
-                <tr className="hover:bg-white/5 transition-colors">
-                  <td className="p-4 text-text-main">View History</td>
-                  <td className="p-4">
-                    <kbd className="px-3 py-1 bg-white/10 rounded text-sm">Ctrl+H</kbd>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* Contact & Support */}
-        <section>
-          <h2 className="text-2xl font-bold text-text-main mb-6">Contact & Support</h2>
-          <div className="space-y-4">
-            <div className="bg-card/30 border border-border-glass rounded-lg p-6">
-              <h3 className="font-semibold text-text-main mb-3">Need More Help?</h3>
-              <p className="text-text-dim mb-4">
-                If you're experiencing issues or have questions not covered here, we're here to
-                help:
-              </p>
-              <div className="space-y-3 text-text-dim">
-                <div className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-full bg-neon-blue/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-neon-blue text-xs">📧</span>
-                  </span>
+            <div className="divide-y divide-white/[0.06]">
+              {[
+                {
+                  step: '1',
+                  title: 'Add a Download',
+                  desc: 'Click Add in the toolbar or press Ctrl+N, then paste a video URL'
+                },
+                {
+                  step: '2',
+                  title: 'Choose Quality',
+                  desc: 'Select format and quality, or use your default from Settings'
+                },
+                {
+                  step: '3',
+                  title: 'Manage Downloads',
+                  desc: 'Pause, resume, or cancel. Multi-select with checkboxes for bulk actions'
+                }
+              ].map((s) => (
+                <div
+                  key={s.step}
+                  className="px-5 py-4 flex items-start gap-4"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-neon-blue/10 flex items-center justify-center text-xs font-bold text-neon-blue shrink-0 mt-0.5">
+                    {s.step}
+                  </div>
                   <div>
-                    <strong className="text-text-main">Email Support:</strong>{' '}
-                    support@nebuladownloader.app
+                    <div className="text-sm font-medium text-text-main">
+                      {s.title}
+                    </div>
+                    <div className="text-xs text-text-dim mt-0.5">
+                      {s.desc}
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-full bg-neon-blue/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-neon-blue text-xs">🌐</span>
-                  </span>
-                  <div>
-                    <strong className="text-text-main">Documentation:</strong>{' '}
-                    docs.nebuladownloader.app
-                  </div>
-                </div>
+              ))}
+            </div>
+          </section>
 
-                <div className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-full bg-neon-blue/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-neon-blue text-xs">👨‍💻</span>
-                  </span>
-                  <div>
-                    <strong className="text-text-main">Developer:</strong>{' '}
-                    <a
-                      href="https://github.com/dev-Aatif"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-neon-blue hover:text-neon-purple transition-colors"
+          {/* FAQ */}
+          <section className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
+            <div className="px-5 py-3 border-b border-white/[0.06]">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-text-dim flex items-center gap-2">
+                <HelpIcon className="w-3.5 h-3.5 text-neon-blue" />
+                FAQ
+              </h3>
+            </div>
+            <div className="divide-y divide-white/[0.06]">
+              {faqs.map((faq, i) => (
+                <button
+                  key={i}
+                  className="w-full text-left px-5 py-3.5 hover:bg-white/[0.02] transition-colors"
+                  onClick={() =>
+                    setOpenFaq(openFaq === i ? null : i)
+                  }
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-text-main">
+                      {faq.q}
+                    </span>
+                    <span
+                      className={`text-text-dim text-xs transition-transform duration-200 ${openFaq === i ? 'rotate-180' : ''}`}
                     >
-                      @dev-Aatif
-                    </a>
+                      ▾
+                    </span>
+                  </div>
+                  {openFaq === i && (
+                    <p className="text-xs text-text-dim mt-2 leading-relaxed pr-6">
+                      {faq.a}
+                    </p>
+                  )}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Keyboard Shortcuts */}
+          <section className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
+            <div className="px-5 py-3 border-b border-white/[0.06]">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-text-dim">
+                Keyboard Shortcuts
+              </h3>
+            </div>
+            <div className="divide-y divide-white/[0.06]">
+              {shortcuts.map((s) => (
+                <div
+                  key={s.key}
+                  className="px-5 py-3 flex items-center justify-between"
+                >
+                  <span className="text-sm text-text-main">
+                    {s.action}
+                  </span>
+                  <kbd className="px-2.5 py-1 bg-white/[0.06] border border-white/[0.08] rounded-md text-xs text-text-dim font-mono">
+                    {s.key}
+                  </kbd>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Contact */}
+          <section className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
+            <div className="px-5 py-3 border-b border-white/[0.06]">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-text-dim">
+                Support
+              </h3>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-neon-blue/10 flex items-center justify-center text-sm">
+                  🐛
+                </div>
+                <div>
+                  <span className="text-sm text-text-main">
+                    Report Issues
+                  </span>
+                  <a
+                    href="https://github.com/dev-Aatif/nebula-downloader/issues"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-neon-blue hover:text-neon-purple transition-colors ml-2"
+                  >
+                    GitHub Issues ↗
+                  </a>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-sm">
+                  👨‍💻
+                </div>
+                <div>
+                  <span className="text-sm text-text-main">
+                    Developer
+                  </span>
+                  <a
+                    href="https://github.com/dev-Aatif"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-neon-blue hover:text-neon-purple transition-colors ml-2"
+                  >
+                    @dev-Aatif ↗
+                  </a>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Credits */}
+          <section className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
+            <div className="px-5 py-3 border-b border-white/[0.06]">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-text-dim">
+                Open Source Credits
+              </h3>
+            </div>
+            <div className="p-4 space-y-2">
+              {credits.map((c) => (
+                <div
+                  key={c.name}
+                  className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]"
+                >
+                  <span className="text-lg">{c.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-text-main">
+                        {c.name}
+                      </span>
+                      <span className="text-[10px] text-neon-blue bg-neon-blue/10 px-1.5 py-0.5 rounded">
+                        {c.license}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-text-dim">
+                      {c.desc}
+                    </div>
                   </div>
                 </div>
-              </div>
+              ))}
             </div>
+          </section>
 
-            <div className="bg-gradient-to-r from-neon-blue/10 to-neon-purple/10 border border-neon-blue/30 rounded-lg p-6">
-              <h3 className="font-semibold text-text-main mb-2">Report a Bug</h3>
-              <p className="text-text-dim text-sm">
-                Found a bug? Please report it on our GitHub repository with detailed steps to
-                reproduce the issue.
-              </p>
+          {/* Footer */}
+          <div className="text-center py-4">
+            <div className="text-xs text-text-dim/40 font-mono">
+              Nebula Downloader v1.1.0
             </div>
-          </div>
-        </section>
-
-        {/* About Section */}
-        <section className="border-t border-white/10 pt-8">
-          <div className="text-center space-y-2 mb-8">
-            <h3 className="text-xl font-semibold text-text-main">Nebula Downloader</h3>
-            <p className="text-text-dim text-sm">Version 1.0.0</p>
-          </div>
-
-          {/* Open Source Credits */}
-          <div className="bg-card/30 border border-border-glass rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-text-main mb-4 flex items-center gap-2">
-              ❤️ Open Source Credits
-            </h3>
-            <p className="text-text-dim text-sm mb-4">
-              Nebula Downloader is built on the shoulders of these amazing open source projects:
-            </p>
-            <div className="grid gap-3">
-              <div className="flex items-start gap-3 p-3 bg-white/5 rounded-lg">
-                <span className="text-xl">📥</span>
-                <div>
-                  <strong className="text-text-main">yt-dlp</strong>
-                  <span className="text-xs text-neon-blue ml-2">Unlicense</span>
-                  <p className="text-text-dim text-xs mt-1">
-                    A youtube-dl fork with additional features. The core engine powering all
-                    downloads.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3 bg-white/5 rounded-lg">
-                <span className="text-xl">🎬</span>
-                <div>
-                  <strong className="text-text-main">FFmpeg</strong>
-                  <span className="text-xs text-neon-blue ml-2">LGPL/GPL</span>
-                  <p className="text-text-dim text-xs mt-1">
-                    Complete solution for audio/video processing, merging, and conversion.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3 bg-white/5 rounded-lg">
-                <span className="text-xl">⚡</span>
-                <div>
-                  <strong className="text-text-main">Electron</strong>
-                  <span className="text-xs text-neon-blue ml-2">MIT</span>
-                  <p className="text-text-dim text-xs mt-1">
-                    Framework for building cross-platform desktop applications.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3 bg-white/5 rounded-lg">
-                <span className="text-xl">⚛️</span>
-                <div>
-                  <strong className="text-text-main">React</strong>
-                  <span className="text-xs text-neon-blue ml-2">MIT</span>
-                  <p className="text-text-dim text-xs mt-1">
-                    JavaScript library for building user interfaces.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3 bg-white/5 rounded-lg">
-                <span className="text-xl">🎨</span>
-                <div>
-                  <strong className="text-text-main">Tailwind CSS</strong>
-                  <span className="text-xs text-neon-blue ml-2">MIT</span>
-                  <p className="text-text-dim text-xs mt-1">
-                    Utility-first CSS framework for modern styling.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <p className="text-text-dim text-xs mt-4 text-center">
-              See our GitHub repository for complete license information.
+            <p className="text-[11px] text-text-dim/30 mt-1">
+              yt-dlp and FFmpeg are downloaded on first run
             </p>
           </div>
-        </section>
+        </div>
       </div>
     </div>
   )

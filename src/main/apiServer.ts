@@ -40,7 +40,7 @@ async function getFormats(
 ): Promise<{ formats: FormatInfo[]; title: string; thumbnail?: string } | null> {
   return new Promise((resolve) => {
     const settings = db.getSettings()
-    const ytdlpPath = settings.ytDlpPath || getYtDlpPath()
+    const ytdlpPath = getYtDlpPath()
     const downloadsPath = settings.downloadDirectory || electron.app.getPath('downloads')
 
     const formatProcess = spawn(ytdlpPath, ['--dump-json', '--no-playlist', videoUrl], {
@@ -98,7 +98,7 @@ async function getMetadata(
 ): Promise<{ title: string; thumbnail?: string; duration?: string } | null> {
   return new Promise((resolve) => {
     const settings = db.getSettings()
-    const ytdlpPath = settings.ytDlpPath || getYtDlpPath()
+    const ytdlpPath = getYtDlpPath()
     const downloadsPath = settings.downloadDirectory || electron.app.getPath('downloads')
 
     const formatProcess = spawn(

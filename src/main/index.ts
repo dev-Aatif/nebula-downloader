@@ -208,7 +208,7 @@ electron.app.whenReady().then(async () => {
     return getFullDependencyStatus()
   })
 
-  // Install missing dependencies (used on first run)
+  // Install missing dependencies (used on first run - installs both)
   electron.ipcMain.handle('install-dependencies', async () => {
     let success = true
 
@@ -226,6 +226,22 @@ electron.app.whenReady().then(async () => {
     }
 
     return success
+  })
+
+  // Install yt-dlp individually
+  electron.ipcMain.handle('install-ytdlp', async () => {
+    const success = await ensureYtDlpInstalled((percent) => {
+      mainWindow?.webContents.send('ytdlp-install-progress', Math.round(percent))
+    })
+    return success
+  })
+
+  // Install ffmpeg individually
+  electron.ipcMain.handle('install-ffmpeg', async () => {
+    const result = await downloadFfmpeg((percent) => {
+      mainWindow?.webContents.send('ffmpeg-install-progress', Math.round(percent))
+    })
+    return result.success
   })
 
   // Check for yt-dlp update
@@ -277,7 +293,7 @@ electron.app.whenReady().then(async () => {
     ): Promise<{ title: string; thumbnail?: string; duration?: string } | null> => {
       return new Promise((resolve) => {
         const settings = db.getSettings()
-        const ytdlpPath = settings.ytDlpPath || getYtDlpPath()
+        const ytdlpPath = getYtDlpPath()
         const downloadsPath = settings.downloadDirectory || electron.app.getPath('downloads')
 
         const formatProcess = spawn(
@@ -318,7 +334,7 @@ electron.app.whenReady().then(async () => {
   electron.ipcMain.handle('get-formats', async (_, url: string): Promise<FormatInfo[] | null> => {
     return new Promise((resolve) => {
       const settings = db.getSettings()
-      const ytdlpPath = settings.ytDlpPath || getYtDlpPath()
+      const ytdlpPath = getYtDlpPath()
       const downloadsPath = settings.downloadDirectory || electron.app.getPath('downloads')
 
       // Windows-only: no need for chmod
@@ -373,7 +389,7 @@ electron.app.whenReady().then(async () => {
     async (_, url: string): Promise<PlaylistCheckResult | null> => {
       return new Promise((resolve) => {
         const settings = db.getSettings()
-        const ytdlpPath = settings.ytDlpPath || getYtDlpPath()
+        const ytdlpPath = getYtDlpPath()
         const downloadsPath = settings.downloadDirectory || electron.app.getPath('downloads')
 
         // Windows-only: no need for chmod
