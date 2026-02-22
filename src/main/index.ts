@@ -32,7 +32,9 @@ import {
   runBackgroundUpdateChecks,
   getYtDlpPath,
   ffmpegExists,
-  downloadFfmpeg
+  downloadFfmpeg,
+  downloadYtDlp,
+  updateVersionInfo
 } from './dependencyManager'
 import { startApiServer, stopApiServer } from './apiServer'
 
@@ -230,18 +232,34 @@ electron.app.whenReady().then(async () => {
 
   // Install yt-dlp individually
   electron.ipcMain.handle('install-ytdlp', async () => {
-    const success = await ensureYtDlpInstalled((percent) => {
-      mainWindow?.webContents.send('ytdlp-install-progress', Math.round(percent))
-    })
-    return success
+    const result = await downloadYtDlp(
+      (percent) => {
+        mainWindow?.webContents.send('ytdlp-install-progress', Math.round(percent))
+      },
+      (status) => {
+        mainWindow?.webContents.send('dep-install-status', 'ytdlp', status)
+      }
+    )
+    if (result.success) {
+      updateVersionInfo('ytDlp', result.version)
+    }
+    return result
   })
 
   // Install ffmpeg individually
   electron.ipcMain.handle('install-ffmpeg', async () => {
-    const result = await downloadFfmpeg((percent) => {
-      mainWindow?.webContents.send('ffmpeg-install-progress', Math.round(percent))
-    })
-    return result.success
+    const result = await downloadFfmpeg(
+      (percent) => {
+        mainWindow?.webContents.send('ffmpeg-install-progress', Math.round(percent))
+      },
+      (status) => {
+        mainWindow?.webContents.send('dep-install-status', 'ffmpeg', status)
+      }
+    )
+    if (result.success) {
+      updateVersionInfo('ffmpeg', result.version)
+    }
+    return result
   })
 
   // Check for yt-dlp update

@@ -49,8 +49,12 @@ export default function SettingsPage(): React.JSX.Element {
   // Individual install/update progress
   const [isInstallingYtDlp, setIsInstallingYtDlp] = useState(false)
   const [ytDlpProgress, setYtDlpProgress] = useState(0)
+  const [ytDlpStatus, setYtDlpStatus] = useState('')
+  const [ytDlpError, setYtDlpError] = useState('')
   const [isInstallingFfmpeg, setIsInstallingFfmpeg] = useState(false)
   const [ffmpegProgress, setFfmpegProgress] = useState(0)
+  const [ffmpegStatus, setFfmpegStatus] = useState('')
+  const [ffmpegError, setFfmpegError] = useState('')
 
   const showNotification = (msg: string): void => {
     setToastMessage(msg)
@@ -68,7 +72,6 @@ export default function SettingsPage(): React.JSX.Element {
 
     const unsub1 = window.api.onYtDlpInstallProgress((p) => setYtDlpProgress(p))
     const unsub2 = window.api.onFfmpegInstallProgress((p) => setFfmpegProgress(p))
-    // Also listen for yt-dlp update progress (reuse for update flow)
     const unsub3 = window.api.onYtDlpUpdateProgress((p) => {
       setYtDlpProgress(p)
       if (p >= 100) {
@@ -79,11 +82,16 @@ export default function SettingsPage(): React.JSX.Element {
         }, 500)
       }
     })
+    const unsub4 = window.api.onDepInstallStatus((dep, msg) => {
+      if (dep === 'ytdlp') setYtDlpStatus(msg)
+      else setFfmpegStatus(msg)
+    })
 
     return () => {
       unsub1()
       unsub2()
       unsub3()
+      unsub4()
     }
   }, [])
 
@@ -91,36 +99,52 @@ export default function SettingsPage(): React.JSX.Element {
   const handleInstallYtDlp = async (): Promise<void> => {
     setIsInstallingYtDlp(true)
     setYtDlpProgress(0)
+    setYtDlpStatus('Starting...')
+    setYtDlpError('')
+      ; (window as any).__depInstallInProgress = true
     try {
-      const ok = await window.api.installYtDlp()
-      if (ok) {
+      const result = await window.api.installYtDlp()
+      if (result.success) {
         showNotification('yt-dlp installed')
+        setYtDlpStatus('')
       } else {
+        setYtDlpError(result.error || 'Installation failed')
+        setYtDlpStatus('')
         showNotification('yt-dlp installation failed')
       }
       refreshStatus()
-    } catch {
-      showNotification('Installation failed')
+    } catch (e) {
+      setYtDlpError(e instanceof Error ? e.message : 'Installation failed')
+      setYtDlpStatus('')
     } finally {
       setIsInstallingYtDlp(false)
+      if (!isInstallingFfmpeg) (window as any).__depInstallInProgress = false
     }
   }
 
   const handleInstallFfmpeg = async (): Promise<void> => {
     setIsInstallingFfmpeg(true)
     setFfmpegProgress(0)
+    setFfmpegStatus('Starting...')
+    setFfmpegError('')
+      ; (window as any).__depInstallInProgress = true
     try {
-      const ok = await window.api.installFfmpeg()
-      if (ok) {
+      const result = await window.api.installFfmpeg()
+      if (result.success) {
         showNotification('FFmpeg installed')
+        setFfmpegStatus('')
       } else {
+        setFfmpegError(result.error || 'Installation failed')
+        setFfmpegStatus('')
         showNotification('FFmpeg installation failed')
       }
       refreshStatus()
-    } catch {
-      showNotification('Installation failed')
+    } catch (e) {
+      setFfmpegError(e instanceof Error ? e.message : 'Installation failed')
+      setFfmpegStatus('')
     } finally {
       setIsInstallingFfmpeg(false)
+      if (!isInstallingYtDlp) (window as any).__depInstallInProgress = false
     }
   }
 
@@ -455,10 +479,17 @@ export default function SettingsPage(): React.JSX.Element {
 
           {/* ── Dependencies ── */}
           <section className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
-            <div className="px-5 py-3 border-b border-white/[0.06]">
+            <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-text-dim">
                 Dependencies
               </h3>
+              <button
+                onClick={refreshStatus}
+                className="text-[10px] px-2 py-0.5 rounded-md bg-white/[0.04] hover:bg-white/[0.08] text-text-dim border border-white/[0.06] transition-colors"
+                title="Re-check if dependencies exist (useful after manual install)"
+              >
+                Refresh
+              </button>
             </div>
             <div className="p-5 space-y-3">
               {/* ── yt-dlp Card ── */}
@@ -469,12 +500,8 @@ export default function SettingsPage(): React.JSX.Element {
                       📥
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-text-main">
-                        yt-dlp
-                      </div>
-                      <div className="text-[11px] text-text-dim">
-                        Download engine
-                      </div>
+                      <div className="text-sm font-medium text-text-main">yt-dlp</div>
+                      <div className="text-[11px] text-text-dim">Download engine</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -506,22 +533,46 @@ export default function SettingsPage(): React.JSX.Element {
                         <span className="text-[11px] text-red-400/80 bg-red-400/10 px-2 py-0.5 rounded-md">
                           Not installed
                         </span>
-                        <button
-                          onClick={handleInstallYtDlp}
-                          disabled={isInstallingYtDlp}
-                          className="text-[11px] px-3 py-1 rounded-md bg-neon-blue/10 hover:bg-neon-blue/20 text-neon-blue border border-neon-blue/20 transition-colors"
-                        >
-                          Install
-                        </button>
+                        {!isInstallingYtDlp && (
+                          <button
+                            onClick={handleInstallYtDlp}
+                            className="text-[11px] px-3 py-1 rounded-md bg-neon-blue/10 hover:bg-neon-blue/20 text-neon-blue border border-neon-blue/20 transition-colors"
+                          >
+                            Install
+                          </button>
+                        )}
                       </>
                     )}
                   </div>
                 </div>
                 {isInstallingYtDlp && (
-                  <ProgressBar
-                    percent={ytDlpProgress}
-                    label="Downloading yt-dlp..."
-                  />
+                  <div className="mt-3">
+                    <ProgressBar percent={ytDlpProgress} label="Downloading yt-dlp..." />
+                    {ytDlpStatus && (
+                      <div className="text-[10px] text-text-dim/70 mt-1.5 truncate" title={ytDlpStatus}>
+                        {ytDlpStatus}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {ytDlpError && !isInstallingYtDlp && (
+                  <div className="mt-3 p-3 rounded-lg bg-red-500/[0.06] border border-red-500/20">
+                    <div className="text-[11px] text-red-400 mb-2 leading-relaxed">{ytDlpError}</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={handleInstallYtDlp}
+                        className="text-[10px] px-2.5 py-1 rounded-md bg-neon-blue/10 hover:bg-neon-blue/20 text-neon-blue border border-neon-blue/20 transition-colors"
+                      >
+                        Retry
+                      </button>
+                      <span className="text-[10px] text-text-dim/50">
+                        or try a VPN/proxy · or{' '}
+                        <button onClick={() => (window as any).__setActivePage?.('Help')} className="text-neon-blue hover:underline">
+                          install manually
+                        </button>
+                      </span>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -533,21 +584,15 @@ export default function SettingsPage(): React.JSX.Element {
                       🎬
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-text-main">
-                        FFmpeg
-                      </div>
-                      <div className="text-[11px] text-text-dim">
-                        Media processing
-                      </div>
+                      <div className="text-sm font-medium text-text-main">FFmpeg</div>
+                      <div className="text-[11px] text-text-dim">Media processing</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {depStatus?.ffmpeg.installed ? (
                       <>
                         <span className="text-[11px] text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-md font-mono">
-                          v
-                          {depStatus.ffmpeg.version?.split('-')[0] ||
-                            'unknown'}
+                          v{depStatus.ffmpeg.version?.split('-')[0] || 'unknown'}
                         </span>
                         {depStatus.ffmpeg.updateAvailable ? (
                           <span className="text-[11px] text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-md">
@@ -568,27 +613,51 @@ export default function SettingsPage(): React.JSX.Element {
                         <span className="text-[11px] text-red-400/80 bg-red-400/10 px-2 py-0.5 rounded-md">
                           Not installed
                         </span>
-                        <button
-                          onClick={handleInstallFfmpeg}
-                          disabled={isInstallingFfmpeg}
-                          className="text-[11px] px-3 py-1 rounded-md bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 transition-colors"
-                        >
-                          Install
-                        </button>
+                        {!isInstallingFfmpeg && (
+                          <button
+                            onClick={handleInstallFfmpeg}
+                            className="text-[11px] px-3 py-1 rounded-md bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 transition-colors"
+                          >
+                            Install
+                          </button>
+                        )}
                       </>
                     )}
                   </div>
                 </div>
                 {isInstallingFfmpeg && (
-                  <ProgressBar
-                    percent={ffmpegProgress}
-                    label="Downloading FFmpeg..."
-                  />
+                  <div className="mt-3">
+                    <ProgressBar percent={ffmpegProgress} label="Downloading FFmpeg..." />
+                    {ffmpegStatus && (
+                      <div className="text-[10px] text-text-dim/70 mt-1.5 truncate" title={ffmpegStatus}>
+                        {ffmpegStatus}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {ffmpegError && !isInstallingFfmpeg && (
+                  <div className="mt-3 p-3 rounded-lg bg-red-500/[0.06] border border-red-500/20">
+                    <div className="text-[11px] text-red-400 mb-2 leading-relaxed">{ffmpegError}</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={handleInstallFfmpeg}
+                        className="text-[10px] px-2.5 py-1 rounded-md bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 transition-colors"
+                      >
+                        Retry
+                      </button>
+                      <span className="text-[10px] text-text-dim/50">
+                        or try a VPN/proxy · or{' '}
+                        <button onClick={() => (window as any).__setActivePage?.('Help')} className="text-neon-blue hover:underline">
+                          install manually
+                        </button>
+                      </span>
+                    </div>
+                  </div>
                 )}
               </div>
 
               <p className="text-[11px] text-text-dim/60 pt-1">
-                Auto-managed. Click Check to look for updates.
+                Auto-managed. Click Refresh after manually placing binaries.
               </p>
             </div>
           </section>

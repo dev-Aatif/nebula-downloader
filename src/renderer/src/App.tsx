@@ -71,7 +71,21 @@ const ToolbarButton: React.FC<{
 )
 
 function App(): React.ReactElement {
-  const [activePage, setActivePage] = useState<Page>('Downloads')
+  const [activePage, setActivePageRaw] = useState<Page>('Downloads')
+
+  // Navigation guard: warn before leaving Settings during a dep install
+  const setActivePage = useCallback((page: Page) => {
+    if (
+      (window as any).__depInstallInProgress &&
+      page !== 'Settings'
+    ) {
+      const confirmed = window.confirm(
+        'A dependency download is in progress. Leaving this page will reset the progress display.\n\nThe download will continue in the background, but you won\'t see the progress.\n\nLeave anyway?'
+      )
+      if (!confirmed) return
+    }
+    setActivePageRaw(page)
+  }, [])
   const [activeFilter, setActiveFilter] = useState<DownloadFilter>('All')
   const [selectedDownloadId, setSelectedDownloadId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState<string>('')

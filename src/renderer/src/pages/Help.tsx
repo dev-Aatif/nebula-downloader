@@ -186,6 +186,103 @@ export default function Help(): React.JSX.Element {
             </div>
           </section>
 
+          {/* Manual Install Guide */}
+          <section className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
+            <div className="px-5 py-3 border-b border-white/[0.06]">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-text-dim flex items-center gap-2">
+                🔧 Manual Dependency Installation
+              </h3>
+            </div>
+            <div className="px-5 py-4 space-y-5">
+              <p className="text-xs text-text-dim leading-relaxed">
+                If automatic download fails due to network restrictions, you can download and
+                install yt-dlp and FFmpeg manually. After placing the files, click{' '}
+                <strong className="text-text-main">Refresh</strong> in Settings → Dependencies.
+              </p>
+
+              {/* yt-dlp */}
+              <div className="rounded-lg bg-white/[0.02] border border-white/[0.04] p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-base">📥</span>
+                  <span className="text-sm font-medium text-text-main">yt-dlp</span>
+                </div>
+                <ol className="text-xs text-text-dim space-y-2 list-decimal list-inside">
+                  <li>
+                    Download from{' '}
+                    <a
+                      href="https://github.com/yt-dlp/yt-dlp/releases/latest"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-neon-blue hover:underline"
+                    >
+                      github.com/yt-dlp/yt-dlp/releases
+                    </a>
+                  </li>
+                  <li>
+                    Choose <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px]">yt-dlp</code> (Linux) or{' '}
+                    <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px]">yt-dlp.exe</code> (Windows)
+                  </li>
+                  <li>
+                    Place it in:{' '}
+                    <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px] break-all">
+                      ~/.config/nebula-downloader/bin/
+                    </code>
+                  </li>
+                  <li>
+                    Linux only: make executable — <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px]">chmod +x yt-dlp</code>
+                  </li>
+                </ol>
+              </div>
+
+              {/* FFmpeg */}
+              <div className="rounded-lg bg-white/[0.02] border border-white/[0.04] p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-base">🎬</span>
+                  <span className="text-sm font-medium text-text-main">FFmpeg</span>
+                </div>
+                <ol className="text-xs text-text-dim space-y-2 list-decimal list-inside">
+                  <li>
+                    Download a static build from{' '}
+                    <a
+                      href="https://github.com/BtbN/FFmpeg-Builds/releases"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-neon-blue hover:underline"
+                    >
+                      BtbN/FFmpeg-Builds
+                    </a>{' '}
+                    or{' '}
+                    <a
+                      href="https://johnvansickle.com/ffmpeg/"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-neon-blue hover:underline"
+                    >
+                      johnvansickle.com/ffmpeg
+                    </a>
+                  </li>
+                  <li>Extract the archive and locate the <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px]">ffmpeg</code> binary inside the <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px]">bin/</code> folder</li>
+                  <li>
+                    Place it in:{' '}
+                    <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px] break-all">
+                      ~/.config/nebula-downloader/bin/
+                    </code>
+                  </li>
+                  <li>
+                    Linux only: make executable — <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px]">chmod +x ffmpeg</code>
+                  </li>
+                </ol>
+              </div>
+
+              <div className="rounded-lg bg-neon-blue/[0.04] border border-neon-blue/10 p-3">
+                <p className="text-[11px] text-text-dim leading-relaxed">
+                  💡 <strong className="text-text-main">Tip:</strong> After placing the files, go to Settings → Dependencies and click{' '}
+                  <strong className="text-neon-blue">Refresh</strong> to let the app detect them. You can also try using a VPN or proxy if the automatic download keeps failing.
+                </p>
+              </div>
+            </div>
+          </section>
+
           {/* Keyboard Shortcuts */}
           <section className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
             <div className="px-5 py-3 border-b border-white/[0.06]">

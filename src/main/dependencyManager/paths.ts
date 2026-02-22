@@ -35,10 +35,17 @@ export function getYtDlpPath(): string {
 export function getFfmpegPath(): string {
   const binaryName = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'
 
+  // First check userData/bin/ (downloaded or manually placed by user)
+  const userBinPath = path.join(app.getPath('userData'), 'bin', binaryName)
+  if (fs.existsSync(userBinPath)) {
+    return userBinPath
+  }
+
+  // Then check bundled location
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'bin', binaryName)
   }
-  // Development: use resources/bin (updated from bin/window)
+  // Development: use resources/bin
   return path.join(process.cwd(), 'resources', 'bin', binaryName)
 }
 

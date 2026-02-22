@@ -63,8 +63,10 @@ const api = {
   getFullDependencyStatus: (): Promise<DependencyStatus> =>
     ipcRenderer.invoke('get-full-dependency-status'),
   installDependencies: (): Promise<boolean> => ipcRenderer.invoke('install-dependencies'),
-  installYtDlp: (): Promise<boolean> => ipcRenderer.invoke('install-ytdlp'),
-  installFfmpeg: (): Promise<boolean> => ipcRenderer.invoke('install-ffmpeg'),
+  installYtDlp: (): Promise<{ success: boolean; version: string; error?: string }> =>
+    ipcRenderer.invoke('install-ytdlp'),
+  installFfmpeg: (): Promise<{ success: boolean; version: string; error?: string }> =>
+    ipcRenderer.invoke('install-ffmpeg'),
   checkYtDlpUpdate: (): Promise<UpdateCheckResult> => ipcRenderer.invoke('check-ytdlp-update'),
   checkFfmpegUpdate: (): Promise<UpdateCheckResult> => ipcRenderer.invoke('check-ffmpeg-update'),
   updateYtDlp: (): Promise<{ success: boolean; version: string; error?: string }> =>
@@ -89,6 +91,17 @@ const api = {
     const handler = (_event: Electron.IpcRendererEvent, percent: number): void => callback(percent)
     ipcRenderer.on('ytdlp-update-progress', handler)
     return () => ipcRenderer.removeListener('ytdlp-update-progress', handler)
+  },
+  onDepInstallStatus: (
+    callback: (dep: 'ytdlp' | 'ffmpeg', message: string) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      dep: 'ytdlp' | 'ffmpeg',
+      message: string
+    ): void => callback(dep, message)
+    ipcRenderer.on('dep-install-status', handler)
+    return () => ipcRenderer.removeListener('dep-install-status', handler)
   },
   // ===== End Dependency Management =====
 

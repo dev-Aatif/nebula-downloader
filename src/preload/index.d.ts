@@ -49,8 +49,8 @@ declare global {
       getDependencyStatus: () => Promise<DependencyStatus>
       getFullDependencyStatus: () => Promise<DependencyStatus>
       installDependencies: () => Promise<boolean>
-      installYtDlp: () => Promise<boolean>
-      installFfmpeg: () => Promise<boolean>
+      installYtDlp: () => Promise<{ success: boolean; version: string; error?: string }>
+      installFfmpeg: () => Promise<{ success: boolean; version: string; error?: string }>
       checkYtDlpUpdate: () => Promise<UpdateCheckResult>
       checkFfmpegUpdate: () => Promise<UpdateCheckResult>
       updateYtDlp: () => Promise<{ success: boolean; version: string; error?: string }>
@@ -59,6 +59,9 @@ declare global {
       onYtDlpInstallProgress: (callback: (percent: number) => void) => () => void
       onFfmpegInstallProgress: (callback: (percent: number) => void) => () => void
       onYtDlpUpdateProgress: (callback: (percent: number) => void) => () => void
+      onDepInstallStatus: (
+        callback: (dep: 'ytdlp' | 'ffmpeg', message: string) => void
+      ) => () => void
 
       onDownloadProgress: (
         callback: (data: {
