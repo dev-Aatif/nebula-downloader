@@ -15,7 +15,7 @@ let mainWindowRef: BrowserWindow | null = null
 const MAX_RETRIES = 3
 const RETRY_DELAYS = [2000, 4000, 8000] // Exponential backoff in ms
 
-// Parse yt-dlp errors into user-friendly messages
+// Parse yt-dlp/ffmpeg errors into user-friendly messages
 function parseYtDlpError(stderr: string): { userMessage: string; isRetryable: boolean } {
   const lowerStderr = stderr.toLowerCase()
 
@@ -89,6 +89,24 @@ function parseYtDlpError(stderr: string): { userMessage: string; isRetryable: bo
     return {
       userMessage:
         'The requested format is not available for this video. Try a different quality preset.',
+      isRetryable: false
+    }
+  }
+
+  // Explicit ExtractorError catch
+  if (lowerStderr.includes('extractorerror')) {
+    return {
+      userMessage:
+        'Site extraction failed. The website may have changed its code. Please check Settings for a yt-dlp update, or report the issue on GitHub.',
+      isRetryable: false
+    }
+  }
+
+  // Explicit FFmpeg catch
+  if (lowerStderr.includes('ffmpeg') || lowerStderr.includes('ffprobe')) {
+    return {
+      userMessage:
+        "Media processing failed during merge/conversion. Please check Settings for an FFmpeg update, or ensure your disk isn't full.",
       isRetryable: false
     }
   }

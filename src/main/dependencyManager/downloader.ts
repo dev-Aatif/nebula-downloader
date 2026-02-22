@@ -125,6 +125,12 @@ export async function getLatestYtDlpRelease(): Promise<GitHubRelease> {
   return JSON.parse(response) as GitHubRelease
 }
 
+import { execFile } from 'child_process'
+import { promisify } from 'util'
+import AdmZip from 'adm-zip'
+
+const execFileAsync = promisify(execFile)
+
 /**
  * Fetch the latest ffmpeg release info from GitHub (BtbN builds)
  */
@@ -214,8 +220,7 @@ export async function downloadYtDlp(
 }
 
 /**
- * Download ffmpeg to the resources bin directory (for manual updates)
- * Note: In production, ffmpeg is bundled. This is for updating.
+ * Download ffmpeg, extract it, and place it in the userData bin directory
  */
 export async function downloadFfmpeg(
   onProgress?: (percent: number) => void
@@ -225,36 +230,101 @@ export async function downloadFfmpeg(
     const release = await getLatestFfmpegRelease()
     const version = release.tag_name
 
-    // Find the Windows GPL build (includes all codecs)
-    // Looking for: ffmpeg-master-latest-win64-gpl.zip or similar
-    const asset = release.assets.find(
-      (a: GitHubAsset) =>
-        a.name.includes('win64') && a.name.includes('gpl') && a.name.endsWith('.zip')
-    )
+    const isWin = process.platform === 'win32'
+    
+    // BtbN naming format: ffmpeg-master-latest-win64-gpl.zip or linux64-gpl.tar.xz
+    const asset = release.assets.find((a: GitHubAsset) => {
+      if (isWin) {
+        return a.name.includes('win64') && a.name.includes('gpl') && a.name.endsWith('.zip')
+      } else {
+        return a.name.includes('linux64') && a.name.includes('gpl') && a.name.endsWith('.tar.xz')
+      }
+    })
 
     if (!asset) {
-      throw new Error('Could not find Windows ffmpeg build in release assets')
+      throw new Error(`Could not find ${isWin ? 'Windows' : 'Linux'} ffmpeg build in release assets`)
     }
 
     console.log(`[DependencyManager] Downloading ffmpeg ${version}...`)
     console.log(`[DependencyManager] URL: ${asset.browser_download_url}`)
 
     const tempDir = getTempDir()
-    const zipPath = path.join(tempDir, 'ffmpeg.zip')
+    const archivePath = path.join(tempDir, isWin ? 'ffmpeg.zip' : 'ffmpeg.tar.xz')
+    const extractDir = path.join(tempDir, 'ffmpeg-extract')
 
-    // Download zip file
-    await downloadFile(asset.browser_download_url, zipPath, (percent) => {
+    // Clean up previous extractions if they exist
+    if (fs.existsSync(extractDir)) {
+      fs.rmSync(extractDir, { recursive: true, force: true })
+    }
+    fs.mkdirSync(extractDir, { recursive: true })
+
+    // Download archive
+    await downloadFile(asset.browser_download_url, archivePath, (percent) => {
       if (onProgress) onProgress(percent)
     })
 
-    // Note: Extracting zip requires additional handling
-    // For now, we'll just report success with the download
-    // The user would need to manually extract or we'd need a zip library
+    console.log(`[DependencyManager] Extracting ffmpeg...`)
 
-    console.log(`[DependencyManager] ffmpeg ${version} downloaded to ${zipPath}`)
-    console.log(
-      '[DependencyManager] Note: ffmpeg update requires manual extraction or app restart with new bundle'
-    )
+    if (isWin) {
+      // Extract ZIP using adm-zip on Windows
+      const zip = new AdmZip(archivePath)
+      zip.extractAllTo(extractDir, true)
+    } else {
+      // Extract TAR.XZ using native tar command on Linux/macOS
+      try {
+        await execFileAsync('tar', ['-xf', archivePath, '-C', extractDir])
+      } catch (err) {
+        throw new Error(`Failed to extract tar.xz file: ${err}`)
+      }
+    }
+
+    // Find the actual ffmpeg executable inside the extracted folders
+    // BtbN structure is usually: ffmpeg-master-latest-win64-gpl/bin/ffmpeg.exe
+    const binaryName = isWin ? 'ffmpeg.exe' : 'ffmpeg'
+    let extractedBinaryPath = ''
+
+    function findBinary(dir: string): void {
+      const files = fs.readdirSync(dir)
+      for (const file of files) {
+        const fullPath = path.join(dir, file)
+        if (fs.statSync(fullPath).isDirectory()) {
+          findBinary(fullPath)
+        } else if (file === binaryName) {
+          extractedBinaryPath = fullPath
+        }
+      }
+    }
+
+    findBinary(extractDir)
+
+    if (!extractedBinaryPath) {
+      throw new Error(`Could not find ${binaryName} inside downloaded archive`)
+    }
+
+    const finalPath = path.join(getUserDataBinDir(), binaryName)
+    
+    // Ensure bin directory exists
+    if (!fs.existsSync(getUserDataBinDir())) {
+      fs.mkdirSync(getUserDataBinDir(), { recursive: true })
+    }
+
+    // Move to final location
+    if (fs.existsSync(finalPath)) {
+      fs.unlinkSync(finalPath)
+    }
+    fs.copyFileSync(extractedBinaryPath, finalPath)
+
+    // Set executable permissions on non-Windows
+    if (!isWin) {
+      fs.chmodSync(finalPath, 0o755)
+    }
+
+    // Cleanup temp files
+    console.log('[DependencyManager] Cleaning up temp files...')
+    fs.unlinkSync(archivePath)
+    fs.rmSync(extractDir, { recursive: true, force: true })
+
+    console.log(`[DependencyManager] ffmpeg ${version} installed successfully to ${finalPath}`)
 
     return { success: true, version }
   } catch (error) {

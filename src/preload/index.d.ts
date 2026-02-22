@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import { Download, DownloadError, FormatInfo, PlaylistCheckResult, Settings } from '../main/types'
+import { Download, DownloadError, FormatInfo, PlaylistCheckResult, Settings, DownloadStatus } from '../main/types'
 
 // Dependency management types
 type DependencyInfo = {
@@ -48,7 +48,7 @@ declare global {
       // Dependency Management
       getDependencyStatus: () => Promise<DependencyStatus>
       getFullDependencyStatus: () => Promise<DependencyStatus>
-      installYtDlp: () => Promise<boolean>
+      installDependencies: () => Promise<boolean>
       checkYtDlpUpdate: () => Promise<UpdateCheckResult>
       checkFfmpegUpdate: () => Promise<UpdateCheckResult>
       updateYtDlp: () => Promise<{ success: boolean; version: string; error?: string }>

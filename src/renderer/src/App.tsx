@@ -153,8 +153,8 @@ function App(): React.ReactElement {
   // Setup modal state for first-run yt-dlp download
   const [needsSetup, setNeedsSetup] = useState(false)
   const [setupProgress, setSetupProgress] = useState(0)
-  const [setupStatus, setSetupStatus] = useState<'downloading' | 'complete' | 'error'>(
-    'downloading'
+  const [setupStatus, setSetupStatus] = useState<'confirm' | 'downloading' | 'complete' | 'error'>(
+    'confirm'
   )
   const [setupError, setSetupError] = useState<string | undefined>(undefined)
 
@@ -167,23 +167,30 @@ function App(): React.ReactElement {
     })
   }, [])
 
+  const handleStartInstall = async (): Promise<void> => {
+    setSetupStatus('downloading')
+    setSetupError(undefined)
+    const success = await window.api.installDependencies()
+    if (success) {
+      setSetupStatus('complete')
+      setTimeout(() => setNeedsSetup(false), 1500)
+    } else {
+      setSetupStatus('error')
+      setSetupError(
+        'Failed to download required dependencies. Please check your internet connection.'
+      )
+    }
+  }
+
   // Check dependency status on load
   useEffect(() => {
     const checkDependencies = async (): Promise<void> => {
       try {
         const status = await window.api.getDependencyStatus()
-        if (!status.ytDlp.installed) {
+        // If either yt-dlp or ffmpeg is missing, we need setup
+        if (!status.ytDlp.installed || !status.ffmpeg.installed) {
           setNeedsSetup(true)
-          setSetupStatus('downloading')
-          // Start installation
-          const success = await window.api.installYtDlp()
-          if (success) {
-            setSetupStatus('complete')
-            setTimeout(() => setNeedsSetup(false), 1500)
-          } else {
-            setSetupStatus('error')
-            setSetupError('Failed to download yt-dlp. Please check your internet connection.')
-          }
+          setSetupStatus('confirm')
         } else {
           // Run background updates for existing installations
           window.api.runBackgroundUpdates()
@@ -258,10 +265,10 @@ function App(): React.ReactElement {
         prev.map((d) =>
           d.id === id
             ? {
-                ...d,
-                status: 'error',
-                errorLogs: d.errorLogs ? [...d.errorLogs, error] : [error]
-              }
+              ...d,
+              status: 'error',
+              errorLogs: d.errorLogs ? [...d.errorLogs, error] : [error]
+            }
             : d
         )
       )
@@ -516,7 +523,7 @@ function App(): React.ReactElement {
               <ToolbarButton title="Pause All" onClick={() => window.api.pauseAllDownloads()}>
                 <PauseIcon className="w-5 h-5" />
               </ToolbarButton>
-              <ToolbarButton title="Delete All" onClick={() => {}}>
+              <ToolbarButton title="Delete All" onClick={() => { }}>
                 <TrashIcon className="w-5 h-5 opacity-50" />
               </ToolbarButton>
             </>
@@ -592,7 +599,7 @@ function App(): React.ReactElement {
               setSelectedIds={setSelectedIds}
               onMultiSelect={handleToggleSelect}
               isLoaded={isDownloadsLoaded}
-              // onSelectAll is handled in the page component to access sorted/filtered list
+            // onSelectAll is handled in the page component to access sorted/filtered list
             />
           </main>
 
@@ -651,6 +658,8 @@ function App(): React.ReactElement {
         progress={setupProgress}
         status={setupStatus}
         error={setupError}
+        onStartInstall={handleStartInstall}
+        onSkip={() => setNeedsSetup(false)}
       />
     </div>
   )

@@ -14,7 +14,6 @@ import {
   getCurrentFfmpegVersion,
   checkYtDlpUpdate,
   checkFfmpegUpdate,
-  updateYtDlp,
   shouldAutoCheckUpdate,
   updateVersionInfo
 } from './updater'
@@ -38,7 +37,7 @@ export async function initializeDependencies(): Promise<{
 
   const status = await getDependencyStatus()
 
-  const needsSetup = !status.ytDlp.installed
+  const needsSetup = !status.ytDlp.installed || !status.ffmpeg.installed
 
   console.log('[DependencyManager] Status:', {
     ytDlp: status.ytDlp.installed ? `v${status.ytDlp.version}` : 'Not installed',
@@ -108,17 +107,25 @@ export async function runBackgroundUpdateChecks(): Promise<void> {
         console.log(
           `[DependencyManager] yt-dlp update available: ${result.currentVersion} -> ${result.latestVersion}`
         )
-        // Silently update in background
-        await updateYtDlp()
-        console.log('[DependencyManager] yt-dlp updated silently')
       }
     } catch (error) {
-      console.warn('[DependencyManager] Failed to check/update yt-dlp:', error)
+      console.warn('[DependencyManager] Failed to check yt-dlp:', error)
     }
   }
 
-  // Note: ffmpeg updates are not automatic since it's bundled
-  // Users can manually check in settings
+  // Check ffmpeg
+  if (ffmpegExists() && shouldAutoCheckUpdate('ffmpeg')) {
+    try {
+      const result = await checkFfmpegUpdate()
+      if (result.updateAvailable) {
+        console.log(
+          `[DependencyManager] ffmpeg update available: ${result.currentVersion} -> ${result.latestVersion}`
+        )
+      }
+    } catch (error) {
+      console.warn('[DependencyManager] Failed to check ffmpeg:', error)
+    }
+  }
 }
 
 /**

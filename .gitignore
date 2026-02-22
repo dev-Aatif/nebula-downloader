@@ -118,3 +118,5 @@ Tests/
 *.wmv
 *.flv
 *.mkv
+
+squashfs-root/

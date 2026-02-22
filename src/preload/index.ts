@@ -62,7 +62,7 @@ const api = {
   getDependencyStatus: (): Promise<DependencyStatus> => ipcRenderer.invoke('get-dependency-status'),
   getFullDependencyStatus: (): Promise<DependencyStatus> =>
     ipcRenderer.invoke('get-full-dependency-status'),
-  installYtDlp: (): Promise<boolean> => ipcRenderer.invoke('install-ytdlp'),
+  installDependencies: (): Promise<boolean> => ipcRenderer.invoke('install-dependencies'),
   checkYtDlpUpdate: (): Promise<UpdateCheckResult> => ipcRenderer.invoke('check-ytdlp-update'),
   checkFfmpegUpdate: (): Promise<UpdateCheckResult> => ipcRenderer.invoke('check-ffmpeg-update'),
   updateYtDlp: (): Promise<{ success: boolean; version: string; error?: string }> =>

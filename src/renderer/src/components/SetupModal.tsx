@@ -3,8 +3,10 @@ import React from 'react'
 interface SetupModalProps {
   isOpen: boolean
   progress: number
-  status: 'downloading' | 'complete' | 'error'
+  status: 'confirm' | 'downloading' | 'complete' | 'error'
   error?: string
+  onStartInstall?: () => void
+  onSkip?: () => void
 }
 
 /**
@@ -15,7 +17,9 @@ function SetupModal({
   isOpen,
   progress,
   status,
-  error
+  error,
+  onStartInstall,
+  onSkip
 }: SetupModalProps): React.ReactElement | null {
   if (!isOpen) return null
 
@@ -48,17 +52,38 @@ function SetupModal({
 
         {/* Subtitle */}
         <p className="text-gray-400 text-center text-sm mb-8">
-          {status === 'downloading' && 'Downloading yt-dlp... This only happens once.'}
+          {status === 'confirm' &&
+            'Core dependencies (yt-dlp & FFmpeg) are missing. Please install them to proceed.'}
+          {status === 'downloading' &&
+            'Downloading core dependencies (yt-dlp & FFmpeg). This only happens once.'}
           {status === 'complete' && 'Setup complete! Starting app...'}
           {status === 'error' &&
-            (error || 'Failed to download yt-dlp. Please check your internet connection.')}
+            (error || 'Failed to download dependencies. Please check your internet connection.')}
         </p>
+
+        {/* Confirm State */}
+        {status === 'confirm' && (
+          <div className="flex flex-col gap-3 mb-4">
+            <button
+              onClick={onStartInstall}
+              className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-lg shadow-md transition-all duration-200 w-full"
+            >
+              Download & Install (~80 MB)
+            </button>
+            <button
+              onClick={onSkip}
+              className="px-6 py-2 text-gray-400 hover:text-white text-sm transition-colors duration-200"
+            >
+              Skip for now
+            </button>
+          </div>
+        )}
 
         {/* Progress Bar */}
         {status === 'downloading' && (
           <div className="mb-4">
             <div className="flex justify-between text-sm text-gray-500 mb-2">
-              <span>Downloading...</span>
+              <span>{progress <= 50 ? 'Downloading yt-dlp...' : 'Downloading FFmpeg...'}</span>
               <span>{Math.round(progress)}%</span>
             </div>
             <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
@@ -115,7 +140,7 @@ function SetupModal({
         {/* Helpful note */}
         {status === 'downloading' && (
           <p className="text-gray-500 text-xs text-center mt-6">
-            yt-dlp is required for downloading videos. Size: ~18 MB
+            These are required for downloading and extracting media. Combined Size: ~80 MB
           </p>
         )}
       </div>

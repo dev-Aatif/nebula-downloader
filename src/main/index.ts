@@ -30,7 +30,9 @@ import {
   checkFfmpegUpdate,
   updateYtDlp,
   runBackgroundUpdateChecks,
-  getYtDlpPath
+  getYtDlpPath,
+  ffmpegExists,
+  downloadFfmpeg
 } from './dependencyManager'
 import { startApiServer, stopApiServer } from './apiServer'
 
@@ -206,11 +208,24 @@ electron.app.whenReady().then(async () => {
     return getFullDependencyStatus()
   })
 
-  // Install yt-dlp (used on first run)
-  electron.ipcMain.handle('install-ytdlp', async () => {
-    return ensureYtDlpInstalled((percent) => {
-      mainWindow?.webContents.send('setup-progress', percent)
+  // Install missing dependencies (used on first run)
+  electron.ipcMain.handle('install-dependencies', async () => {
+    let success = true
+
+    // Install yt-dlp (0-50% progress)
+    success = await ensureYtDlpInstalled((percent) => {
+      mainWindow?.webContents.send('setup-progress', Math.round(percent / 2))
     })
+
+    // Install ffmpeg (50-100% progress)
+    if (success && !ffmpegExists()) {
+      const ffmpegResult = await downloadFfmpeg((percent) => {
+        mainWindow?.webContents.send('setup-progress', 50 + Math.round(percent / 2))
+      })
+      success = ffmpegResult.success
+    }
+
+    return success
   })
 
   // Check for yt-dlp update
