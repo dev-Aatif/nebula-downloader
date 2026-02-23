@@ -46,7 +46,7 @@ const FFMPEG_DIRECT_URLS = {
   ]
 }
 
-const CONNECT_TIMEOUT = 15000 // 15 seconds
+const CONNECT_TIMEOUT = 30000 // 30 seconds — standard for non-resumable downloads
 const MAX_RETRY_ROUNDS = 3 // Retry all mirrors up to 3 times
 
 /** Status callback for UI feedback */
@@ -200,6 +200,51 @@ function getPartialSize(filepath: string): number {
 }
 
 /**
+ * Verify a downloaded file has valid magic bytes (not an HTML error page)
+ * Returns null if valid, or an error message if invalid
+ */
+function verifyFileMagic(filepath: string, label: string): string | null {
+  try {
+    const fd = fs.openSync(filepath, 'r')
+    const buf = Buffer.alloc(8)
+    fs.readSync(fd, buf, 0, 8, 0)
+    fs.closeSync(fd)
+
+    // Check for HTML error pages (mirrors returning error with 200 status)
+    if (buf[0] === 0x3c) {
+      // Starts with '<' — this is HTML, not a binary
+      return 'Mirror returned an HTML page instead of the file'
+    }
+
+    // Validate expected archive formats
+    if (label.toLowerCase().includes('ffmpeg')) {
+      // .tar.xz magic: FD 37 7A 58 5A 00
+      const isXz = buf[0] === 0xfd && buf[1] === 0x37 && buf[2] === 0x7a &&
+                    buf[3] === 0x58 && buf[4] === 0x5a && buf[5] === 0x00
+      // .zip magic: 50 4B (PK)
+      const isZip = buf[0] === 0x50 && buf[1] === 0x4b
+      if (!isXz && !isZip) {
+        return `Invalid archive format (got bytes: ${buf.slice(0, 6).toString('hex')})`
+      }
+    }
+
+    // For yt-dlp: ELF binary (Linux) or MZ (Windows exe)
+    if (label.toLowerCase().includes('yt-dlp')) {
+      const isElf = buf[0] === 0x7f && buf[1] === 0x45 && buf[2] === 0x4c && buf[3] === 0x46
+      const isMz = buf[0] === 0x4d && buf[1] === 0x5a
+      const isShebang = buf[0] === 0x23 && buf[1] === 0x21 // #!/...
+      if (!isElf && !isMz && !isShebang) {
+        return `Invalid binary format (got bytes: ${buf.slice(0, 6).toString('hex')})`
+      }
+    }
+
+    return null // Valid
+  } catch {
+    return 'Could not read downloaded file'
+  }
+}
+
+/**
  * Download from multiple mirrors with resume support.
  * If a mirror fails midway, the next mirror resumes from where the previous left off.
  * After exhausting all mirrors, retries the full list up to MAX_RETRY_ROUNDS times.
@@ -213,13 +258,6 @@ async function downloadWithMirrors(
 ): Promise<void> {
   let lastError: Error | null = null
   let maxPercent = 0
-
-  // Check for existing partial download (from a previous failed/cancelled attempt)
-  const existingPartial = getPartialSize(destination)
-  if (existingPartial > 0) {
-    onStatus?.(`Found cached download (${formatSize(existingPartial)}), resuming...`)
-    console.log(`[DependencyManager] Found cached partial for ${label}: ${existingPartial} bytes`)
-  }
 
   for (let round = 0; round < MAX_RETRY_ROUNDS; round++) {
     if (round > 0) {
@@ -238,12 +276,7 @@ async function downloadWithMirrors(
       console.log(`[DependencyManager] ${mirrorLabel} for ${label}: ${url}`)
 
       try {
-        const resumeFrom = getPartialSize(destination)
-        if (resumeFrom > 0) {
-          onStatus?.(`${mirrorLabel}: Resuming from ${formatSize(resumeFrom)}...`)
-          console.log(`[DependencyManager] Resuming ${label} from ${resumeFrom} bytes`)
-        }
-
+        // Never resume from a file that failed validation — start fresh per mirror
         await downloadFile(
           url,
           destination,
@@ -253,25 +286,37 @@ async function downloadWithMirrors(
               onProgress?.(maxPercent)
             }
           },
-          resumeFrom
+          0 // Always start fresh — resume caused too many corruption issues
         )
+
+        // Validate the downloaded file has correct magic bytes
+        const validationError = verifyFileMagic(destination, label)
+        if (validationError) {
+          console.warn(
+            `[DependencyManager] ${mirrorLabel} served bad file: ${validationError}`
+          )
+          onStatus?.(`${mirrorLabel}: ${validationError}, trying next...`)
+          // Delete the bad file so next mirror starts clean
+          try { if (fs.existsSync(destination)) fs.unlinkSync(destination) } catch { /* */ }
+          lastError = new Error(validationError)
+          continue // Try next mirror
+        }
 
         onStatus?.(`Downloaded from ${mirrorName}`)
         console.log(`[DependencyManager] ✓ Downloaded ${label} from ${mirrorLabel}`)
         return
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error))
-        console.warn(`[DependencyManager] ✗ ${mirrorLabel} failed for ${label}: ${lastError.message}`)
+        console.warn(
+          `[DependencyManager] ✗ ${mirrorLabel} failed for ${label}: ${lastError.message}`
+        )
         onStatus?.(`${mirrorLabel} failed: ${lastError.message}`)
 
-        // Keep partial downloads for resume, only clean up tiny files (<1KB)
-        const partialSize = getPartialSize(destination)
-        if (partialSize < 1024) {
-          try {
-            if (fs.existsSync(destination)) fs.unlinkSync(destination)
-          } catch {
-            /* ignore */
-          }
+        // Clean up any partial/bad file so next mirror starts fresh
+        try {
+          if (fs.existsSync(destination)) fs.unlinkSync(destination)
+        } catch {
+          /* ignore */
         }
       }
     }
@@ -450,6 +495,23 @@ export async function downloadFfmpeg(
     // Download with fallback
     await downloadWithMirrors(urls, archivePath, onProgress, onStatus, 'FFmpeg')
 
+    // Validate archive before extraction — FFmpeg archives are always >5MB
+    const archiveSize = getPartialSize(archivePath)
+    const MIN_FFMPEG_SIZE = 5 * 1024 * 1024 // 5MB minimum
+    if (archiveSize < MIN_FFMPEG_SIZE) {
+      // Corrupt or incomplete — delete and fail so next attempt starts fresh
+      console.error(
+        `[DependencyManager] FFmpeg archive too small (${formatSize(archiveSize)}), likely corrupt`
+      )
+      try {
+        if (fs.existsSync(archivePath)) fs.unlinkSync(archivePath)
+      } catch { /* ignore */ }
+      throw new Error(
+        `Downloaded archive is too small (${formatSize(archiveSize)}). ` +
+        `The download may have been interrupted. Click Install to try again.`
+      )
+    }
+
     onStatus?.('Extracting FFmpeg...')
 
     if (isWin) {
@@ -458,8 +520,15 @@ export async function downloadFfmpeg(
     } else {
       try {
         await execFileAsync('tar', ['-xf', archivePath, '-C', extractDir])
-      } catch (err) {
-        throw new Error(`Failed to extract archive: ${err}`)
+      } catch {
+        // Extraction failed — the archive is corrupt. Delete it so next retry downloads fresh
+        console.error(`[DependencyManager] Extraction failed, deleting corrupt archive`)
+        try {
+          if (fs.existsSync(archivePath)) fs.unlinkSync(archivePath)
+        } catch { /* ignore */ }
+        throw new Error(
+          `Archive is corrupt and has been deleted. Click Install to download again fresh.`
+        )
       }
     }
 
@@ -508,7 +577,9 @@ export async function downloadFfmpeg(
     console.error('[DependencyManager] Failed to download FFmpeg:', msg)
     onStatus?.(`Failed: ${msg}`)
 
-    // Keep archivePath for resume on retry — only clean up extract dir
+    // If the error is about corruption/extraction, the archive was already deleted above.
+    // For other errors (network), keep the archive for resume on retry.
+    // Only clean up extract dir.
     try {
       if (fs.existsSync(extractDir)) fs.rmSync(extractDir, { recursive: true, force: true })
     } catch {
