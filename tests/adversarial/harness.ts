@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Test Harness for Nebula Downloader API
  * Mocks Electron and DB to run apiServer.ts in isolation.

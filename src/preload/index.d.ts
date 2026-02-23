@@ -1,5 +1,12 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import { Download, DownloadError, FormatInfo, PlaylistCheckResult, Settings, DownloadStatus } from '../main/types'
+import {
+  Download,
+  DownloadError,
+  FormatInfo,
+  PlaylistCheckResult,
+  Settings,
+  DownloadStatus
+} from '../main/types'
 
 // Dependency management types
 type DependencyInfo = {

@@ -3,7 +3,7 @@ export default [
     test: {
       name: 'main',
       environment: 'node',
-      include: ['tests/unit/main/**/*.test.ts'],
+      include: ['tests/unit/main/**/*.test.ts']
     }
   },
   {

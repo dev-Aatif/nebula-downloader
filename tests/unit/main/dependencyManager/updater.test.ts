@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import fs from 'fs'
 import {
@@ -30,7 +31,11 @@ vi.mock('child_process', () => ({
     if (file.includes('yt-dlp')) {
       callback(null, '2024.03.10\n', '')
     } else if (file.includes('ffmpeg')) {
-      callback(null, 'ffmpeg version autobuild-2024-03-10-12-34 Copyright (c) 2000-2024 the FFmpeg developers\n', '')
+      callback(
+        null,
+        'ffmpeg version autobuild-2024-03-10-12-34 Copyright (c) 2000-2024 the FFmpeg developers\n',
+        ''
+      )
     }
   })
 }))
@@ -44,7 +49,11 @@ vi.mock('util', async (importOriginal) => {
       // Return a function that directly resolves the mock stdout instead of using callbacks
       return async (file: string) => {
         if (file.includes('yt-dlp')) return { stdout: '2024.03.10\n' }
-        if (file.includes('ffmpeg')) return { stdout: 'ffmpeg version autobuild-2024-03-10-12-34 Copyright (c) 2000-2024 the FFmpeg developers\n' }
+        if (file.includes('ffmpeg'))
+          return {
+            stdout:
+              'ffmpeg version autobuild-2024-03-10-12-34 Copyright (c) 2000-2024 the FFmpeg developers\n'
+          }
         return { stdout: '' }
       }
     })
@@ -54,28 +63,34 @@ vi.mock('util', async (importOriginal) => {
 // Mock fs to simulate writing/reading the version tracker file
 vi.mock('fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('fs')>()
-  
+
   let mockFileContent = JSON.stringify({
-    ytDlp: { version: '2024.03.10', lastChecked: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString() }, // 2 days ago
+    ytDlp: {
+      version: '2024.03.10',
+      lastChecked: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+    }, // 2 days ago
     ffmpeg: { version: 'autobuild-2024-03-10-12-34', lastChecked: new Date().toISOString() } // Just now
   })
-  
+
   return {
     ...actual,
     default: {
       ...actual,
       existsSync: vi.fn(() => true),
       readFileSync: vi.fn(() => mockFileContent),
-      writeFileSync: vi.fn((path: any, data: any) => { mockFileContent = data as string }),
+      writeFileSync: vi.fn((path: any, data: any) => {
+        mockFileContent = data as string
+      })
     },
     existsSync: vi.fn(() => true),
     readFileSync: vi.fn(() => mockFileContent),
-    writeFileSync: vi.fn((path: any, data: any) => { mockFileContent = data as string }),
+    writeFileSync: vi.fn((path: any, data: any) => {
+      mockFileContent = data as string
+    })
   }
 })
 
 describe('Dependency Updater Version Tracking', () => {
-
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -94,7 +109,7 @@ describe('Dependency Updater Version Tracking', () => {
 
   describe('Auto Check Timing Rules', () => {
     it('requires update check for yt-dlp if more than 24 hours elapsed', () => {
-      expect(shouldAutoCheckUpdate('ytDlp')).toBe(true) 
+      expect(shouldAutoCheckUpdate('ytDlp')).toBe(true)
     })
 
     it('skips update check for ffmpeg if checked less than 7 days ago', () => {

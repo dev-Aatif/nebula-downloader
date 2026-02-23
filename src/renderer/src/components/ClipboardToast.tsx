@@ -12,6 +12,18 @@ const ClipboardToast: React.FC<ClipboardToastProps> = ({ url, onDownload, onDism
   const [isVisible, setIsVisible] = useState(false)
   const [isLeaving, setIsLeaving] = useState(false)
 
+  const handleDismiss = (): void => {
+    setIsLeaving(true)
+    setTimeout(() => {
+      onDismiss()
+    }, 300) // Match animation duration
+  }
+
+  const handleDownload = (): void => {
+    onDownload(url)
+    handleDismiss()
+  }
+
   useEffect(() => {
     // Trigger enter animation
     const enterTimer = setTimeout(() => setIsVisible(true), 10)
@@ -25,19 +37,8 @@ const ClipboardToast: React.FC<ClipboardToastProps> = ({ url, onDownload, onDism
       clearTimeout(enterTimer)
       clearTimeout(dismissTimer)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  const handleDismiss = (): void => {
-    setIsLeaving(true)
-    setTimeout(() => {
-      onDismiss()
-    }, 300) // Match animation duration
-  }
-
-  const handleDownload = (): void => {
-    onDownload(url)
-    handleDismiss()
-  }
 
   return (
     <div

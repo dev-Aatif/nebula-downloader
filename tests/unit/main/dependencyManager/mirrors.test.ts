@@ -38,7 +38,7 @@ function checkUrlAccessible(url: string, maxRedirects = 3): Promise<boolean> {
   return new Promise((resolve) => {
     if (maxRedirects < 0) return resolve(false)
     const client = url.startsWith('https') ? https : http
-    
+
     // We do a GET instead of HEAD since some static hosts (like Github Releases) can behave strictly with HEAD
     const req = client.get(
       url,
@@ -49,7 +49,10 @@ function checkUrlAccessible(url: string, maxRedirects = 3): Promise<boolean> {
           resolve(true)
           return
         }
-        if ((res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 308) && res.headers.location) {
+        if (
+          (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 308) &&
+          res.headers.location
+        ) {
           req.destroy()
           checkUrlAccessible(res.headers.location, maxRedirects - 1).then(resolve)
           return
@@ -58,7 +61,7 @@ function checkUrlAccessible(url: string, maxRedirects = 3): Promise<boolean> {
         resolve(false)
       }
     )
-    
+
     req.on('error', () => resolve(false))
     req.on('timeout', () => {
       req.destroy()

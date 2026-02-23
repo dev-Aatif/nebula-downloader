@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useRef } from 'react'
 import type { Settings } from '@main/types'
 import ToggleSwitch from '../components/ToggleSwitch'
@@ -101,7 +102,7 @@ export default function SettingsPage(): React.JSX.Element {
     setYtDlpProgress(0)
     setYtDlpStatus('Starting...')
     setYtDlpError('')
-      ; (window as any).__depInstallInProgress = true
+    ;(window as any).__depInstallInProgress = true
     try {
       const result = await window.api.installYtDlp()
       if (result.success) {
@@ -127,7 +128,7 @@ export default function SettingsPage(): React.JSX.Element {
     setFfmpegProgress(0)
     setFfmpegStatus('Starting...')
     setFfmpegError('')
-      ; (window as any).__depInstallInProgress = true
+    ;(window as any).__depInstallInProgress = true
     try {
       const result = await window.api.installFfmpeg()
       if (result.success) {
@@ -155,19 +156,17 @@ export default function SettingsPage(): React.JSX.Element {
       setDepStatus((prev) =>
         prev
           ? {
-            ...prev,
-            ytDlp: {
-              ...prev.ytDlp,
-              updateAvailable: r.updateAvailable,
-              latestVersion: r.latestVersion
+              ...prev,
+              ytDlp: {
+                ...prev.ytDlp,
+                updateAvailable: r.updateAvailable,
+                latestVersion: r.latestVersion
+              }
             }
-          }
           : null
       )
       showNotification(
-        r.updateAvailable
-          ? `Update available: v${r.latestVersion}`
-          : 'yt-dlp is up to date'
+        r.updateAvailable ? `Update available: v${r.latestVersion}` : 'yt-dlp is up to date'
       )
     } catch {
       showNotification('Check failed')
@@ -183,19 +182,17 @@ export default function SettingsPage(): React.JSX.Element {
       setDepStatus((prev) =>
         prev
           ? {
-            ...prev,
-            ffmpeg: {
-              ...prev.ffmpeg,
-              updateAvailable: r.updateAvailable,
-              latestVersion: r.latestVersion
+              ...prev,
+              ffmpeg: {
+                ...prev.ffmpeg,
+                updateAvailable: r.updateAvailable,
+                latestVersion: r.latestVersion
+              }
             }
-          }
           : null
       )
       showNotification(
-        r.updateAvailable
-          ? `Update available: v${r.latestVersion}`
-          : 'FFmpeg is up to date'
+        r.updateAvailable ? `Update available: v${r.latestVersion}` : 'FFmpeg is up to date'
       )
     } catch {
       showNotification('Check failed')
@@ -245,9 +242,7 @@ export default function SettingsPage(): React.JSX.Element {
     return () => clearTimeout(t)
   }, [settings])
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ): void => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
     const { name, value } = e.target
     const type = e.target.getAttribute('type')
     setSettings((p) => ({
@@ -256,9 +251,7 @@ export default function SettingsPage(): React.JSX.Element {
     }))
   }
 
-  const handleFormatModeChange = (
-    e: React.ChangeEvent<HTMLSelectElement>
-  ): void => {
+  const handleFormatModeChange = (e: React.ChangeEvent<HTMLSelectElement>): void => {
     const mode = e.target.value
     setFormatMode(mode)
     if (mode !== 'custom') {
@@ -288,9 +281,7 @@ export default function SettingsPage(): React.JSX.Element {
     <div className="mt-2 px-1">
       <div className="flex items-center justify-between mb-1">
         <span className="text-[10px] text-text-dim">{label}</span>
-        <span className="text-[10px] text-text-dim font-mono">
-          {percent}%
-        </span>
+        <span className="text-[10px] text-text-dim font-mono">{percent}%</span>
       </div>
       <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden">
         <div
@@ -319,12 +310,8 @@ export default function SettingsPage(): React.JSX.Element {
         <div className="max-w-2xl mx-auto space-y-6">
           {/* Header */}
           <div className="mb-2">
-            <h2 className="text-2xl font-bold text-text-main tracking-tight">
-              Settings
-            </h2>
-            <p className="text-text-dim text-sm mt-1">
-              Configure your preferences
-            </p>
+            <h2 className="text-2xl font-bold text-text-main tracking-tight">Settings</h2>
+            <p className="text-text-dim text-sm mt-1">Configure your preferences</p>
           </div>
 
           {/* ── General ── */}
@@ -338,9 +325,7 @@ export default function SettingsPage(): React.JSX.Element {
               {/* Download Directory */}
               <div className="px-5 py-4 flex items-center justify-between gap-4">
                 <div className="min-w-0">
-                  <div className="text-sm font-medium text-text-main">
-                    Download Directory
-                  </div>
+                  <div className="text-sm font-medium text-text-main">Download Directory</div>
                   <div className="text-xs text-text-dim mt-0.5 truncate">
                     {settings.downloadDirectory || 'Not set'}
                   </div>
@@ -356,36 +341,24 @@ export default function SettingsPage(): React.JSX.Element {
               {/* Auto-Download */}
               <div className="px-5 py-4 flex items-center justify-between gap-4">
                 <div>
-                  <div className="text-sm font-medium text-text-main">
-                    Auto-Download
-                  </div>
+                  <div className="text-sm font-medium text-text-main">Auto-Download</div>
                   <div className="text-xs text-text-dim mt-0.5">
                     Skip modal and download immediately
                   </div>
                 </div>
                 <ToggleSwitch
                   checked={settings.autoDownload || false}
-                  onChange={(c) =>
-                    setSettings((s) => ({ ...s, autoDownload: c }))
-                  }
+                  onChange={(c) => setSettings((s) => ({ ...s, autoDownload: c }))}
                 />
               </div>
 
               {/* Preferred Format */}
               <div className="px-5 py-4">
                 <div className="mb-3">
-                  <div className="text-sm font-medium text-text-main">
-                    Preferred Format
-                  </div>
-                  <div className="text-xs text-text-dim mt-0.5">
-                    Default quality and format
-                  </div>
+                  <div className="text-sm font-medium text-text-main">Preferred Format</div>
+                  <div className="text-xs text-text-dim mt-0.5">Default quality and format</div>
                 </div>
-                <select
-                  className={inputCls}
-                  value={formatMode}
-                  onChange={handleFormatModeChange}
-                >
+                <select className={inputCls} value={formatMode} onChange={handleFormatModeChange}>
                   {FORMAT_PRESETS.map((p) => (
                     <option key={p.value} value={p.value}>
                       {p.label}
@@ -416,12 +389,8 @@ export default function SettingsPage(): React.JSX.Element {
             <div className="divide-y divide-white/[0.06]">
               <div className="px-5 py-4 flex items-center justify-between gap-4">
                 <div>
-                  <div className="text-sm font-medium text-text-main">
-                    Simultaneous Downloads
-                  </div>
-                  <div className="text-xs text-text-dim mt-0.5">
-                    Max parallel downloads
-                  </div>
+                  <div className="text-sm font-medium text-text-main">Simultaneous Downloads</div>
+                  <div className="text-xs text-text-dim mt-0.5">Max parallel downloads</div>
                 </div>
                 <input
                   type="number"
@@ -436,12 +405,8 @@ export default function SettingsPage(): React.JSX.Element {
 
               <div className="px-5 py-4 flex items-center justify-between gap-4">
                 <div>
-                  <div className="text-sm font-medium text-text-main">
-                    Speed Limit
-                  </div>
-                  <div className="text-xs text-text-dim mt-0.5">
-                    0 = unlimited
-                  </div>
+                  <div className="text-sm font-medium text-text-main">Speed Limit</div>
+                  <div className="text-xs text-text-dim mt-0.5">0 = unlimited</div>
                 </div>
                 <div className="flex items-center gap-2">
                   <input
@@ -458,12 +423,8 @@ export default function SettingsPage(): React.JSX.Element {
 
               <div className="px-5 py-4">
                 <div className="mb-2">
-                  <div className="text-sm font-medium text-text-main">
-                    Proxy
-                  </div>
-                  <div className="text-xs text-text-dim mt-0.5">
-                    HTTP/HTTPS/SOCKS proxy URL
-                  </div>
+                  <div className="text-sm font-medium text-text-main">Proxy</div>
+                  <div className="text-xs text-text-dim mt-0.5">HTTP/HTTPS/SOCKS proxy URL</div>
                 </div>
                 <input
                   type="text"
@@ -549,7 +510,10 @@ export default function SettingsPage(): React.JSX.Element {
                   <div className="mt-3">
                     <ProgressBar percent={ytDlpProgress} label="Downloading yt-dlp..." />
                     {ytDlpStatus && (
-                      <div className="text-[10px] text-text-dim/70 mt-1.5 truncate" title={ytDlpStatus}>
+                      <div
+                        className="text-[10px] text-text-dim/70 mt-1.5 truncate"
+                        title={ytDlpStatus}
+                      >
                         {ytDlpStatus}
                       </div>
                     )}
@@ -557,7 +521,9 @@ export default function SettingsPage(): React.JSX.Element {
                 )}
                 {ytDlpError && !isInstallingYtDlp && (
                   <div className="mt-3 p-3 rounded-lg bg-red-500/[0.06] border border-red-500/20">
-                    <div className="text-[11px] text-red-400 mb-2 leading-relaxed">{ytDlpError}</div>
+                    <div className="text-[11px] text-red-400 mb-2 leading-relaxed">
+                      {ytDlpError}
+                    </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <button
                         onClick={handleInstallYtDlp}
@@ -567,7 +533,10 @@ export default function SettingsPage(): React.JSX.Element {
                       </button>
                       <span className="text-[10px] text-text-dim/50">
                         or try a VPN/proxy · or{' '}
-                        <button onClick={() => (window as any).__setActivePage?.('Help')} className="text-neon-blue hover:underline">
+                        <button
+                          onClick={() => (window as any).__setActivePage?.('Help')}
+                          className="text-neon-blue hover:underline"
+                        >
                           install manually
                         </button>
                       </span>
@@ -629,7 +598,10 @@ export default function SettingsPage(): React.JSX.Element {
                   <div className="mt-3">
                     <ProgressBar percent={ffmpegProgress} label="Downloading FFmpeg..." />
                     {ffmpegStatus && (
-                      <div className="text-[10px] text-text-dim/70 mt-1.5 truncate" title={ffmpegStatus}>
+                      <div
+                        className="text-[10px] text-text-dim/70 mt-1.5 truncate"
+                        title={ffmpegStatus}
+                      >
                         {ffmpegStatus}
                       </div>
                     )}
@@ -637,7 +609,9 @@ export default function SettingsPage(): React.JSX.Element {
                 )}
                 {ffmpegError && !isInstallingFfmpeg && (
                   <div className="mt-3 p-3 rounded-lg bg-red-500/[0.06] border border-red-500/20">
-                    <div className="text-[11px] text-red-400 mb-2 leading-relaxed">{ffmpegError}</div>
+                    <div className="text-[11px] text-red-400 mb-2 leading-relaxed">
+                      {ffmpegError}
+                    </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <button
                         onClick={handleInstallFfmpeg}
@@ -647,7 +621,10 @@ export default function SettingsPage(): React.JSX.Element {
                       </button>
                       <span className="text-[10px] text-text-dim/50">
                         or try a VPN/proxy · or{' '}
-                        <button onClick={() => (window as any).__setActivePage?.('Help')} className="text-neon-blue hover:underline">
+                        <button
+                          onClick={() => (window as any).__setActivePage?.('Help')}
+                          className="text-neon-blue hover:underline"
+                        >
                           install manually
                         </button>
                       </span>
@@ -669,11 +646,7 @@ export default function SettingsPage(): React.JSX.Element {
         <div className="text-xs flex items-center gap-2">
           {saving && (
             <span className="text-neon-blue flex items-center gap-1.5">
-              <svg
-                className="w-3.5 h-3.5 animate-spin"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
+              <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
                 <circle
                   className="opacity-25"
                   cx="12"
@@ -693,17 +666,14 @@ export default function SettingsPage(): React.JSX.Element {
           )}
           {!saving && showToast && (
             <span className="text-emerald-400 flex items-center gap-1.5">
-              <CheckCircleIcon className="w-3.5 h-3.5" />{' '}
-              {toastMessage || 'Saved'}
+              <CheckCircleIcon className="w-3.5 h-3.5" /> {toastMessage || 'Saved'}
             </span>
           )}
           {!saving && !showToast && hasChanges && (
             <span className="text-text-dim">Unsaved changes</span>
           )}
           {!saving && !showToast && !hasChanges && (
-            <span className="text-text-dim/40">
-              All changes saved automatically
-            </span>
+            <span className="text-text-dim/40">All changes saved automatically</span>
           )}
         </div>
       </div>

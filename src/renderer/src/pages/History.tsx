@@ -15,10 +15,7 @@ interface HistoryProps {
   setSelectedDownloadId?: unknown
 }
 
-export default function History({
-  downloads,
-  setDownloads
-}: HistoryProps): React.JSX.Element {
+export default function History({ downloads, setDownloads }: HistoryProps): React.JSX.Element {
   const [localSearch, setLocalSearch] = useState('')
   const [formatFilter, setFormatFilter] = useState('All Formats')
   const [isLoading, setIsLoading] = useState(true)
@@ -30,26 +27,15 @@ export default function History({
   }, [])
 
   const completedDownloads = useMemo(
-    () =>
-      downloads.filter(
-        (d) => d.status === 'completed' || d.status === 'error'
-      ),
+    () => downloads.filter((d) => d.status === 'completed' || d.status === 'error'),
     [downloads]
   )
 
   // Stats
   const totalDownloads = completedDownloads.length
-  const totalSize = completedDownloads.reduce(
-    (acc, d) => acc + (d.totalSizeInBytes || 0),
-    0
-  )
-  const successCount = completedDownloads.filter(
-    (d) => d.status === 'completed'
-  ).length
-  const successRate =
-    totalDownloads > 0
-      ? Math.round((successCount / totalDownloads) * 100)
-      : 0
+  const totalSize = completedDownloads.reduce((acc, d) => acc + (d.totalSizeInBytes || 0), 0)
+  const successCount = completedDownloads.filter((d) => d.status === 'completed').length
+  const successRate = totalDownloads > 0 ? Math.round((successCount / totalDownloads) * 100) : 0
 
   const sourceCounts = completedDownloads.reduce(
     (acc, d) => {
@@ -63,23 +49,17 @@ export default function History({
     },
     {} as Record<string, number>
   )
-  const topSource =
-    Object.entries(sourceCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '—'
+  const topSource = Object.entries(sourceCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '—'
 
   // Filtered list
   const filteredList = useMemo(() => {
     return completedDownloads
       .filter((d) => {
-        const matchSearch = (d.title || d.url)
-          .toLowerCase()
-          .includes(localSearch.toLowerCase())
+        const matchSearch = (d.title || d.url).toLowerCase().includes(localSearch.toLowerCase())
         const matchFormat = formatFilter === 'All Formats' ? true : true
         return matchSearch && matchFormat
       })
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      )
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   }, [completedDownloads, localSearch, formatFilter])
 
   // Handlers
@@ -90,11 +70,7 @@ export default function History({
       )
     ) {
       completedDownloads.forEach((d) => window.api.deleteDownload(d.id))
-      setDownloads((prev) =>
-        prev.filter(
-          (d) => d.status !== 'completed' && d.status !== 'error'
-        )
-      )
+      setDownloads((prev) => prev.filter((d) => d.status !== 'completed' && d.status !== 'error'))
     }
   }
 
@@ -111,13 +87,8 @@ export default function History({
         type === 'json'
           ? JSON.stringify(data, null, 2)
           : ['Title,URL,Size,Date,Path']
-            .concat(
-              data.map(
-                (d) =>
-                  `"${d.title}","${d.url}",${d.size},"${d.date}","${d.path}"`
-              )
-            )
-            .join('\n')
+              .concat(data.map((d) => `"${d.title}","${d.url}",${d.size},"${d.date}","${d.path}"`))
+              .join('\n')
       ],
       { type: 'text/plain' }
     )
@@ -130,10 +101,7 @@ export default function History({
   }
 
   const handleSelectAll = (): void => {
-    if (
-      selectedIds.size === filteredList.length &&
-      filteredList.length > 0
-    ) {
+    if (selectedIds.size === filteredList.length && filteredList.length > 0) {
       setSelectedIds(new Set())
     } else {
       setSelectedIds(new Set(filteredList.map((d) => d.id)))
@@ -149,15 +117,9 @@ export default function History({
 
   const handleBulkDelete = (): void => {
     if (selectedIds.size === 0) return
-    if (
-      window.confirm(
-        `Delete ${selectedIds.size} item(s) from history?`
-      )
-    ) {
+    if (window.confirm(`Delete ${selectedIds.size} item(s) from history?`)) {
       selectedIds.forEach((id) => window.api.deleteDownload(id))
-      setDownloads((prev) =>
-        prev.filter((d) => !selectedIds.has(d.id))
-      )
+      setDownloads((prev) => prev.filter((d) => !selectedIds.has(d.id)))
       setSelectedIds(new Set())
     }
   }
@@ -179,21 +141,19 @@ export default function History({
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-text-main tracking-tight">
-                History
-              </h2>
+              <h2 className="text-2xl font-bold text-text-main tracking-tight">History</h2>
               <p className="text-text-dim text-sm mt-1">
-                {totalDownloads} downloads &middot;{' '}
-                {formatBytes(totalSize)} total
+                {totalDownloads} downloads &middot; {formatBytes(totalSize)} total
               </p>
             </div>
             <div className="flex items-center gap-2">
               {selectedIds.size > 0 && (
                 <>
-                  <span className="text-xs text-text-dim mr-1">
-                    {selectedIds.size} selected
-                  </span>
-                  <button onClick={handleBulkDelete} className={`${btnCls} !text-red-400 !border-red-500/20`}>
+                  <span className="text-xs text-text-dim mr-1">{selectedIds.size} selected</span>
+                  <button
+                    onClick={handleBulkDelete}
+                    className={`${btnCls} !text-red-400 !border-red-500/20`}
+                  >
                     Delete
                   </button>
                 </>
@@ -246,11 +206,7 @@ export default function History({
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mb-1">
                   {s.label}
                 </div>
-                <div
-                  className={`text-xl font-bold ${s.color} truncate`}
-                >
-                  {s.value}
-                </div>
+                <div className={`text-xl font-bold ${s.color} truncate`}>{s.value}</div>
               </div>
             ))}
           </div>
@@ -288,18 +244,9 @@ export default function History({
                   className="w-4 h-4 border border-white/[0.15] rounded hover:border-neon-blue transition-colors flex items-center justify-center"
                   title="Select All"
                 >
-                  {selectedIds.size > 0 &&
-                    selectedIds.size === filteredList.length ? (
-                    <svg
-                      className="w-3 h-3 text-neon-blue"
-                      viewBox="0 0 12 12"
-                      fill="none"
-                    >
-                      <path
-                        d="M10 3L4.5 8.5L2 6"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      />
+                  {selectedIds.size > 0 && selectedIds.size === filteredList.length ? (
+                    <svg className="w-3 h-3 text-neon-blue" viewBox="0 0 12 12" fill="none">
+                      <path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="2" />
                     </svg>
                   ) : selectedIds.size > 0 ? (
                     <div className="w-2 h-0.5 bg-neon-blue" />
@@ -334,12 +281,8 @@ export default function History({
                 <div className="w-14 h-14 bg-white/[0.04] rounded-full flex items-center justify-center mb-4">
                   <DownloadIcon className="w-7 h-7 text-text-dim" />
                 </div>
-                <h3 className="text-lg font-semibold text-text-main mb-1">
-                  No Downloads Yet
-                </h3>
-                <p className="text-text-dim text-sm">
-                  Completed downloads will appear here
-                </p>
+                <h3 className="text-lg font-semibold text-text-main mb-1">No Downloads Yet</h3>
+                <p className="text-text-dim text-sm">Completed downloads will appear here</p>
               </div>
             ) : (
               <div className="p-3 space-y-1.5">
@@ -349,16 +292,10 @@ export default function History({
                     download={download}
                     index={index}
                     isSelected={selectedIds.has(download.id)}
-                    onToggleSelect={() =>
-                      handleToggleSelect(download.id)
-                    }
+                    onToggleSelect={() => handleToggleSelect(download.id)}
                     onOpenFile={(id) => window.api.openFile(id)}
-                    onShowInFolder={(id) =>
-                      window.api.showInFolder(id)
-                    }
-                    onDelete={(id) =>
-                      window.api.deleteDownload(id)
-                    }
+                    onShowInFolder={(id) => window.api.showInFolder(id)}
+                    onDelete={(id) => window.api.deleteDownload(id)}
                   />
                 ))}
               </div>

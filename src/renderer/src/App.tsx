@@ -75,12 +75,10 @@ function App(): React.ReactElement {
 
   // Navigation guard: warn before leaving Settings during a dep install
   const setActivePage = useCallback((page: Page) => {
-    if (
-      (window as any).__depInstallInProgress &&
-      page !== 'Settings'
-    ) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((window as any).__depInstallInProgress && page !== 'Settings') {
       const confirmed = window.confirm(
-        'A dependency download is in progress. Leaving this page will reset the progress display.\n\nThe download will continue in the background, but you won\'t see the progress.\n\nLeave anyway?'
+        "A dependency download is in progress. Leaving this page will reset the progress display.\n\nThe download will continue in the background, but you won't see the progress.\n\nLeave anyway?"
       )
       if (!confirmed) return
     }
@@ -279,10 +277,10 @@ function App(): React.ReactElement {
         prev.map((d) =>
           d.id === id
             ? {
-              ...d,
-              status: 'error',
-              errorLogs: d.errorLogs ? [...d.errorLogs, error] : [error]
-            }
+                ...d,
+                status: 'error',
+                errorLogs: d.errorLogs ? [...d.errorLogs, error] : [error]
+              }
             : d
         )
       )
@@ -537,7 +535,7 @@ function App(): React.ReactElement {
               <ToolbarButton title="Pause All" onClick={() => window.api.pauseAllDownloads()}>
                 <PauseIcon className="w-5 h-5" />
               </ToolbarButton>
-              <ToolbarButton title="Delete All" onClick={() => { }}>
+              <ToolbarButton title="Delete All" onClick={() => {}}>
                 <TrashIcon className="w-5 h-5 opacity-50" />
               </ToolbarButton>
             </>
@@ -613,7 +611,7 @@ function App(): React.ReactElement {
               setSelectedIds={setSelectedIds}
               onMultiSelect={handleToggleSelect}
               isLoaded={isDownloadsLoaded}
-            // onSelectAll is handled in the page component to access sorted/filtered list
+              // onSelectAll is handled in the page component to access sorted/filtered list
             />
           </main>
 

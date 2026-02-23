@@ -15,6 +15,36 @@ interface ContextMenuProps {
   onCopyUrl: () => void
 }
 
+const MenuItem = ({
+  label,
+  onClick,
+  disabled = false,
+  danger = false
+}: {
+  label: string
+  onClick: () => void
+  disabled?: boolean
+  danger?: boolean
+}): React.JSX.Element => (
+  <button
+    className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
+      disabled
+        ? 'text-text-dim/50 cursor-not-allowed'
+        : danger
+          ? 'text-red-400 hover:bg-red-500/10'
+          : 'text-text-main hover:bg-white/10'
+    }`}
+    onClick={() => {
+      if (!disabled) {
+        onClick()
+      }
+    }}
+    disabled={disabled}
+  >
+    {label}
+  </button>
+)
+
 export default function ContextMenu({
   x,
   y,
@@ -52,37 +82,6 @@ export default function ContextMenu({
     }
   }, [onClose])
 
-  const MenuItem = ({
-    label,
-    onClick,
-    disabled = false,
-    danger = false
-  }: {
-    label: string
-    onClick: () => void
-    disabled?: boolean
-    danger?: boolean
-  }): React.JSX.Element => (
-    <button
-      className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
-        disabled
-          ? 'text-text-dim/50 cursor-not-allowed'
-          : danger
-            ? 'text-red-400 hover:bg-red-500/10'
-            : 'text-text-main hover:bg-white/10'
-      }`}
-      onClick={() => {
-        if (!disabled) {
-          onClick()
-          onClose()
-        }
-      }}
-      disabled={disabled}
-    >
-      {label}
-    </button>
-  )
-
   const isDownloading = download.status === 'downloading'
   const isPaused = download.status === 'paused'
   const isQueued = download.status === 'queued'
@@ -96,26 +95,75 @@ export default function ContextMenu({
       style={{ top: y, left: x }}
     >
       {/* Pause/Resume */}
-      {(isDownloading || isQueued) && <MenuItem label="Pause" onClick={onPause} />}
-      {isPaused && <MenuItem label="Resume" onClick={onResume} />}
-      {isError && <MenuItem label="Retry" onClick={onRetry} />}
+      {(isDownloading || isQueued) && (
+        <MenuItem
+          label="Pause"
+          onClick={() => {
+            onPause()
+            onClose()
+          }}
+        />
+      )}
+      {isPaused && (
+        <MenuItem
+          label="Resume"
+          onClick={() => {
+            onResume()
+            onClose()
+          }}
+        />
+      )}
+      {isError && (
+        <MenuItem
+          label="Retry"
+          onClick={() => {
+            onRetry()
+            onClose()
+          }}
+        />
+      )}
 
       {/* File operations */}
       {isCompleted && (
         <>
-          <MenuItem label="Open File" onClick={onOpenFile} />
-          <MenuItem label="Show in Folder" onClick={onShowInFolder} />
+          <MenuItem
+            label="Open File"
+            onClick={() => {
+              onOpenFile()
+              onClose()
+            }}
+          />
+          <MenuItem
+            label="Show in Folder"
+            onClick={() => {
+              onShowInFolder()
+              onClose()
+            }}
+          />
         </>
       )}
 
       {/* Common actions */}
-      <MenuItem label="Copy URL" onClick={onCopyUrl} />
+      <MenuItem
+        label="Copy URL"
+        onClick={() => {
+          onCopyUrl()
+          onClose()
+        }}
+      />
 
       {/* Divider */}
       <div className="border-t border-border-glass my-1" />
 
       {/* Delete */}
-      <MenuItem label="Delete" onClick={onDelete} danger />
+      <MenuItem
+        label="Delete"
+        onClick={() => {
+          onDelete()
+          onClose()
+        }}
+        danger
+      />
     </div>
   )
 }

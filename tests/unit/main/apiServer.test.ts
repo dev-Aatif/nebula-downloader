@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import http from 'http'
 import { startApiServer, stopApiServer, isApiServerRunning } from '../../../src/main/apiServer'
@@ -28,6 +29,7 @@ describe('API Server (apiServer.ts)', () => {
     webContents: {
       send: vi.fn()
     }
+     
   } as any
 
   beforeEach(async () => {
@@ -41,13 +43,13 @@ describe('API Server (apiServer.ts)', () => {
 
   it('should start and stop the server', async () => {
     expect(isApiServerRunning()).toBe(false)
-    
+
     // We'll use a dynamic port to avoid conflicts
     const port = 5001 + Math.floor(Math.random() * 1000)
     await startApiServer(port, mockMainWindow)
-    
+
     expect(isApiServerRunning()).toBe(true)
-    
+
     await stopApiServer()
     expect(isApiServerRunning()).toBe(false)
   })
@@ -57,22 +59,25 @@ describe('API Server (apiServer.ts)', () => {
     await startApiServer(port, mockMainWindow)
 
     return new Promise<void>((resolve, reject) => {
-      const req = http.request({
-        hostname: 'localhost',
-        port,
-        path: '/api/download',
-        method: 'OPTIONS',
-        headers: { 'Origin': 'chrome-extension://mock' }
-      }, (res) => {
-        try {
-          expect(res.statusCode).toBe(204)
-          expect(res.headers['access-control-allow-origin']).toBe('chrome-extension://mock')
-          expect(res.headers['access-control-allow-methods']).toContain('POST')
-          resolve()
-        } catch (e) {
-          reject(e)
+      const req = http.request(
+        {
+          hostname: 'localhost',
+          port,
+          path: '/api/download',
+          method: 'OPTIONS',
+          headers: { Origin: 'chrome-extension://mock' }
+        },
+        (res) => {
+          try {
+            expect(res.statusCode).toBe(204)
+            expect(res.headers['access-control-allow-origin']).toBe('chrome-extension://mock')
+            expect(res.headers['access-control-allow-methods']).toContain('POST')
+            resolve()
+          } catch (e) {
+            reject(e)
+          }
         }
-      })
+      )
       req.on('error', reject)
       req.end()
     })
@@ -83,19 +88,22 @@ describe('API Server (apiServer.ts)', () => {
     await startApiServer(port, mockMainWindow)
 
     return new Promise<void>((resolve, reject) => {
-      const req = http.request({
-        hostname: 'localhost',
-        port,
-        path: '/api/download',
-        method: 'GET',
-      }, (res) => {
-        try {
-          expect(res.statusCode).toBe(404) // Backend doesn't differentiate methods natively outside POST, returning 404 cleanly
-          resolve()
-        } catch (e) {
-          reject(e)
+      const req = http.request(
+        {
+          hostname: 'localhost',
+          port,
+          path: '/api/download',
+          method: 'GET'
+        },
+        (res) => {
+          try {
+            expect(res.statusCode).toBe(404) // Backend doesn't differentiate methods natively outside POST, returning 404 cleanly
+            resolve()
+          } catch (e) {
+            reject(e)
+          }
         }
-      })
+      )
       req.on('error', reject)
       req.end()
     })
@@ -106,29 +114,31 @@ describe('API Server (apiServer.ts)', () => {
     await startApiServer(port, mockMainWindow)
 
     return new Promise<void>((resolve, reject) => {
-      const req = http.request({
-        hostname: 'localhost',
-        port,
-        path: '/api/download',
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      }, (res) => {
-        let data = ''
-        res.on('data', chunk => data += chunk)
-        res.on('end', () => {
-          try {
-            expect(res.statusCode).toBe(400)
-            expect(JSON.parse(data).status).toBe('error')
-            resolve()
-          } catch (e) {
-            reject(e)
-          }
-        })
-      })
+      const req = http.request(
+        {
+          hostname: 'localhost',
+          port,
+          path: '/api/download',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        },
+        (res) => {
+          let data = ''
+          res.on('data', (chunk) => (data += chunk))
+          res.on('end', () => {
+            try {
+              expect(res.statusCode).toBe(400)
+              expect(JSON.parse(data).status).toBe('error')
+              resolve()
+            } catch (e) {
+              reject(e)
+            }
+          })
+        }
+      )
       req.on('error', reject)
       req.write(JSON.stringify({ url: '' })) // Missing url
       req.end()
     })
   })
-
 })

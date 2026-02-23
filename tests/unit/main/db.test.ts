@@ -1,8 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import Database from 'better-sqlite3'
 import fs from 'fs'
-import path from 'path'
-import { app } from 'electron'
 
 // Mock electron app
 vi.mock('electron', () => ({
@@ -24,7 +21,6 @@ import { Download } from '../../../src/main/types'
 
 describe('Database (db.ts)', () => {
   const testDbDir = '/tmp/nebula-test-db'
-  const testDbPath = path.join(testDbDir, 'database.sqlite')
 
   beforeEach(async () => {
     // Ensure clean state before each test
@@ -33,16 +29,16 @@ describe('Database (db.ts)', () => {
       fs.rmSync(testDbDir, { recursive: true, force: true })
     }
     fs.mkdirSync(testDbDir, { recursive: true })
-    
+
     // We need to re-init manually to ensure we get a fresh DB object
     // @ts-expect-error accessing private property for testing
     const dbInstance = db.constructor.getInstance()
     // @ts-expect-error accessing private property for testing
     if (dbInstance.db) {
-       // @ts-expect-error accessing private property for testing
-       dbInstance.db.close()
-       // @ts-expect-error accessing private property for testing
-       dbInstance.db = null
+      // @ts-expect-error accessing private property for testing
+      dbInstance.db.close()
+      // @ts-expect-error accessing private property for testing
+      dbInstance.db = null
     }
 
     await dbInstance.init()
@@ -61,7 +57,7 @@ describe('Database (db.ts)', () => {
     if (fs.existsSync(testDbDir)) {
       try {
         fs.rmSync(testDbDir, { recursive: true, force: true })
-      } catch (e) {
+      } catch {
         // Ignore locked file errors on windows occasionally during teardwon
       }
     }
@@ -69,9 +65,11 @@ describe('Database (db.ts)', () => {
 
   it('should initialize database and create tables', async () => {
     // @ts-expect-error accessing private property for testing
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sqlDb = db['db'] as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tables = sqlDb.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as any[]
-    
+
     const tableNames = tables.map((t) => t.name)
     expect(tableNames).toContain('downloads')
     expect(tableNames).toContain('settings')
@@ -99,7 +97,7 @@ describe('Database (db.ts)', () => {
       expect(settings.concurrency).toBe(5)
       expect(settings.defaultFormat).toBe('mp4')
     })
-    
+
     it('should merge partial updates with existing settings', async () => {
       await db.updateSettings({ concurrency: 2 })
       await db.updateSettings({ defaultFormat: 'ogg' })
@@ -166,7 +164,7 @@ describe('Database (db.ts)', () => {
       const dl = await db.getDownload(mockDownload1.id)
       expect(dl).toBeDefined()
       expect(dl?.id).toBe(mockDownload1.id)
-      
+
       const missingDl = await db.getDownload('non-existent')
       expect(missingDl).toBeUndefined()
     })
@@ -175,7 +173,7 @@ describe('Database (db.ts)', () => {
       await db.addDownload(mockDownload1)
       const updatedMock = { ...mockDownload1, title: 'Updated Title' }
       await db.updateDownload(updatedMock.id, updatedMock)
-      
+
       const downloads = db.getDownloads()
       expect(downloads.length).toBe(1)
       expect(downloads[0].title).toBe('Updated Title')
@@ -184,7 +182,7 @@ describe('Database (db.ts)', () => {
     it('should update a download', async () => {
       await db.addDownload(mockDownload1)
       await db.updateDownload(mockDownload1.id, { progress: 75, status: 'paused' })
-      
+
       const dl = await db.getDownload(mockDownload1.id)
       expect(dl?.progress).toBe(75)
       expect(dl?.status).toBe('paused')
@@ -194,18 +192,18 @@ describe('Database (db.ts)', () => {
     it('should update multiple downloads', async () => {
       await db.addDownload(mockDownload1)
       await db.addDownload(mockDownload2)
-      
+
       const update1 = { id: mockDownload1.id, progress: 100, status: 'completed' as const }
       const update2 = { id: mockDownload2.id, status: 'error' as const, error: 'Failed' }
-      
+
       await db.updateDownloads([
         { ...mockDownload1, ...update1 },
         { ...mockDownload2, ...update2 }
       ])
-      
+
       const dl1 = await db.getDownload(mockDownload1.id)
       const dl2 = await db.getDownload(mockDownload2.id)
-      
+
       expect(dl1?.status).toBe('completed')
       expect(dl2?.status).toBe('error')
     })
@@ -213,7 +211,7 @@ describe('Database (db.ts)', () => {
     it('should remove a download', async () => {
       await db.addDownload(mockDownload1)
       expect(db.getDownloads().length).toBe(1)
-      
+
       await db.removeDownload(mockDownload1.id)
       expect(db.getDownloads().length).toBe(0)
     })
@@ -221,16 +219,16 @@ describe('Database (db.ts)', () => {
     it('should handle loadAndResumeDownloads by resetting downloading state to paused', async () => {
       await db.addDownload(mockDownload1) // status: 'downloading'
       await db.addDownload(mockDownload2) // status: 'completed'
-      
+
       const resumed = await db.loadAndResumeDownloads()
-      
+
       // 'downloading' should be paused, 'completed' should stay completed
       const dl1 = resumed.find((d) => d.id === mockDownload1.id)
       const dl2 = resumed.find((d) => d.id === mockDownload2.id)
-      
+
       expect(dl1?.status).toBe('paused')
       expect(dl2?.status).toBe('completed')
-      
+
       // Also verify db state is updated
       const dl1Db = await db.getDownload(mockDownload1.id)
       expect(dl1Db?.status).toBe('paused')

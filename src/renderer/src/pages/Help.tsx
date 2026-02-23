@@ -85,19 +85,11 @@ export default function Help(): React.JSX.Element {
         <div className="bg-gradient-to-br from-neon-blue/[0.06] to-purple-500/[0.06] border-b border-white/[0.06] px-8 py-10">
           <div className="max-w-3xl mx-auto flex items-center gap-4">
             <div className="w-14 h-14 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center overflow-hidden shrink-0">
-              <img
-                src={logo}
-                alt="Nebula"
-                className="w-10 h-10 object-contain"
-              />
+              <img src={logo} alt="Nebula" className="w-10 h-10 object-contain" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-text-main">
-                Help &amp; Support
-              </h1>
-              <p className="text-text-dim text-sm mt-0.5">
-                Everything you need to get started
-              </p>
+              <h1 className="text-2xl font-bold text-text-main">Help &amp; Support</h1>
+              <p className="text-text-dim text-sm mt-0.5">Everything you need to get started</p>
             </div>
           </div>
         </div>
@@ -129,20 +121,13 @@ export default function Help(): React.JSX.Element {
                   desc: 'Pause, resume, or cancel. Multi-select with checkboxes for bulk actions'
                 }
               ].map((s) => (
-                <div
-                  key={s.step}
-                  className="px-5 py-4 flex items-start gap-4"
-                >
+                <div key={s.step} className="px-5 py-4 flex items-start gap-4">
                   <div className="w-7 h-7 rounded-lg bg-neon-blue/10 flex items-center justify-center text-xs font-bold text-neon-blue shrink-0 mt-0.5">
                     {s.step}
                   </div>
                   <div>
-                    <div className="text-sm font-medium text-text-main">
-                      {s.title}
-                    </div>
-                    <div className="text-xs text-text-dim mt-0.5">
-                      {s.desc}
-                    </div>
+                    <div className="text-sm font-medium text-text-main">{s.title}</div>
+                    <div className="text-xs text-text-dim mt-0.5">{s.desc}</div>
                   </div>
                 </div>
               ))}
@@ -162,14 +147,10 @@ export default function Help(): React.JSX.Element {
                 <button
                   key={i}
                   className="w-full text-left px-5 py-3.5 hover:bg-white/[0.02] transition-colors"
-                  onClick={() =>
-                    setOpenFaq(openFaq === i ? null : i)
-                  }
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-text-main">
-                      {faq.q}
-                    </span>
+                    <span className="text-sm font-medium text-text-main">{faq.q}</span>
                     <span
                       className={`text-text-dim text-xs transition-transform duration-200 ${openFaq === i ? 'rotate-180' : ''}`}
                     >
@@ -177,9 +158,7 @@ export default function Help(): React.JSX.Element {
                     </span>
                   </div>
                   {openFaq === i && (
-                    <p className="text-xs text-text-dim mt-2 leading-relaxed pr-6">
-                      {faq.a}
-                    </p>
+                    <p className="text-xs text-text-dim mt-2 leading-relaxed pr-6">{faq.a}</p>
                   )}
                 </button>
               ))}
@@ -219,8 +198,15 @@ export default function Help(): React.JSX.Element {
                     </a>
                   </li>
                   <li>
-                    Choose <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px]">yt-dlp</code> (Linux) or{' '}
-                    <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px]">yt-dlp.exe</code> (Windows)
+                    Choose{' '}
+                    <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px]">
+                      yt-dlp
+                    </code>{' '}
+                    (Linux) or{' '}
+                    <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px]">
+                      yt-dlp.exe
+                    </code>{' '}
+                    (Windows)
                   </li>
                   <li>
                     Place it in:{' '}
@@ -229,7 +215,10 @@ export default function Help(): React.JSX.Element {
                     </code>
                   </li>
                   <li>
-                    Linux only: make executable — <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px]">chmod +x yt-dlp</code>
+                    Linux only: make executable —{' '}
+                    <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px]">
+                      chmod +x yt-dlp
+                    </code>
                   </li>
                 </ol>
               </div>
@@ -261,7 +250,15 @@ export default function Help(): React.JSX.Element {
                       johnvansickle.com/ffmpeg
                     </a>
                   </li>
-                  <li>Extract the archive and locate the <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px]">ffmpeg</code> binary inside the <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px]">bin/</code> folder</li>
+                  <li>
+                    Extract the archive and locate the{' '}
+                    <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px]">
+                      ffmpeg
+                    </code>{' '}
+                    binary inside the{' '}
+                    <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px]">bin/</code>{' '}
+                    folder
+                  </li>
                   <li>
                     Place it in:{' '}
                     <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px] break-all">
@@ -269,15 +266,20 @@ export default function Help(): React.JSX.Element {
                     </code>
                   </li>
                   <li>
-                    Linux only: make executable — <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px]">chmod +x ffmpeg</code>
+                    Linux only: make executable —{' '}
+                    <code className="px-1.5 py-0.5 bg-white/[0.06] rounded text-[10px]">
+                      chmod +x ffmpeg
+                    </code>
                   </li>
                 </ol>
               </div>
 
               <div className="rounded-lg bg-neon-blue/[0.04] border border-neon-blue/10 p-3">
                 <p className="text-[11px] text-text-dim leading-relaxed">
-                  💡 <strong className="text-text-main">Tip:</strong> After placing the files, go to Settings → Dependencies and click{' '}
-                  <strong className="text-neon-blue">Refresh</strong> to let the app detect them. You can also try using a VPN or proxy if the automatic download keeps failing.
+                  💡 <strong className="text-text-main">Tip:</strong> After placing the files, go to
+                  Settings → Dependencies and click{' '}
+                  <strong className="text-neon-blue">Refresh</strong> to let the app detect them.
+                  You can also try using a VPN or proxy if the automatic download keeps failing.
                 </p>
               </div>
             </div>
@@ -292,13 +294,8 @@ export default function Help(): React.JSX.Element {
             </div>
             <div className="divide-y divide-white/[0.06]">
               {shortcuts.map((s) => (
-                <div
-                  key={s.key}
-                  className="px-5 py-3 flex items-center justify-between"
-                >
-                  <span className="text-sm text-text-main">
-                    {s.action}
-                  </span>
+                <div key={s.key} className="px-5 py-3 flex items-center justify-between">
+                  <span className="text-sm text-text-main">{s.action}</span>
                   <kbd className="px-2.5 py-1 bg-white/[0.06] border border-white/[0.08] rounded-md text-xs text-text-dim font-mono">
                     {s.key}
                   </kbd>
@@ -320,9 +317,7 @@ export default function Help(): React.JSX.Element {
                   🐛
                 </div>
                 <div>
-                  <span className="text-sm text-text-main">
-                    Report Issues
-                  </span>
+                  <span className="text-sm text-text-main">Report Issues</span>
                   <a
                     href="https://github.com/dev-Aatif/nebula-downloader/issues"
                     target="_blank"
@@ -338,9 +333,7 @@ export default function Help(): React.JSX.Element {
                   👨‍💻
                 </div>
                 <div>
-                  <span className="text-sm text-text-main">
-                    Developer
-                  </span>
+                  <span className="text-sm text-text-main">Developer</span>
                   <a
                     href="https://github.com/dev-Aatif"
                     target="_blank"
@@ -370,16 +363,12 @@ export default function Help(): React.JSX.Element {
                   <span className="text-lg">{c.icon}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-text-main">
-                        {c.name}
-                      </span>
+                      <span className="text-sm font-medium text-text-main">{c.name}</span>
                       <span className="text-[10px] text-neon-blue bg-neon-blue/10 px-1.5 py-0.5 rounded">
                         {c.license}
                       </span>
                     </div>
-                    <div className="text-[11px] text-text-dim">
-                      {c.desc}
-                    </div>
+                    <div className="text-[11px] text-text-dim">{c.desc}</div>
                   </div>
                 </div>
               ))}
@@ -388,9 +377,7 @@ export default function Help(): React.JSX.Element {
 
           {/* Footer */}
           <div className="text-center py-4">
-            <div className="text-xs text-text-dim/40 font-mono">
-              Nebula Downloader v1.1.0
-            </div>
+            <div className="text-xs text-text-dim/40 font-mono">Nebula Downloader v1.1.0</div>
             <p className="text-[11px] text-text-dim/30 mt-1">
               yt-dlp and FFmpeg are downloaded on first run
             </p>

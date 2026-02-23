@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { test, expect, _electron as electron } from '@playwright/test'
 
 test.describe('App E2E', () => {
@@ -29,10 +30,10 @@ test.describe('App E2E', () => {
   test('navigation between side-panel tabs works', async () => {
     // Check initial tab
     await expect(window.locator('text=Downloads').first()).toBeVisible()
-    
+
     // Click Settings
     await window.locator('nav >> text=Settings').click()
-    
+
     // Check Settings view
     await expect(window.locator('text=Output Directory').first()).toBeVisible()
     await expect(window.locator('text=Theme').first()).toBeVisible()
@@ -54,7 +55,7 @@ test.describe('App E2E', () => {
     // Find the "+" or Add button to submit URL. Typically aria-label="Add download"
     // Since we don't know the exact class or aria-label, we can look for the button next to input
     const addBtn = window.locator('button[aria-label="Add download"]')
-    
+
     // We won't actually click it unless we have mocked backend in E2E since
     // it requires real yt-dlp. Or we can click it and verify the "Checking..." state.
     // For now we just verify the input took the value.

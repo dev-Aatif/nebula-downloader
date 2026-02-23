@@ -1,6 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import nock from 'nock'
-import { getLatestYtDlpVersion, getLatestFfmpegVersion } from '../../../../src/main/dependencyManager/downloader'
+import {
+  getLatestYtDlpVersion,
+  getLatestFfmpegVersion
+} from '../../../../src/main/dependencyManager/downloader'
 
 describe('Dependency Downloader HTTP Fallbacks', () => {
   beforeEach(() => {

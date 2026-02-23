@@ -211,8 +211,13 @@ function verifyFileMagic(filepath: string, label: string): string | null {
     // Validate expected archive formats
     if (label.toLowerCase().includes('ffmpeg')) {
       // .tar.xz magic: FD 37 7A 58 5A 00
-      const isXz = buf[0] === 0xfd && buf[1] === 0x37 && buf[2] === 0x7a &&
-                    buf[3] === 0x58 && buf[4] === 0x5a && buf[5] === 0x00
+      const isXz =
+        buf[0] === 0xfd &&
+        buf[1] === 0x37 &&
+        buf[2] === 0x7a &&
+        buf[3] === 0x58 &&
+        buf[4] === 0x5a &&
+        buf[5] === 0x00
       // .zip magic: 50 4B (PK)
       const isZip = buf[0] === 0x50 && buf[1] === 0x4b
       if (!isXz && !isZip) {
@@ -260,9 +265,10 @@ async function downloadWithMirrors(
     for (let i = 0; i < urls.length; i++) {
       const url = urls[i]
       const mirrorName = extractMirrorName(url)
-      const mirrorLabel = round === 0
-        ? `Mirror ${i + 1}/${urls.length}`
-        : `Mirror ${i + 1}/${urls.length} (retry ${round + 1})`
+      const mirrorLabel =
+        round === 0
+          ? `Mirror ${i + 1}/${urls.length}`
+          : `Mirror ${i + 1}/${urls.length} (retry ${round + 1})`
 
       onStatus?.(`${mirrorLabel}: Connecting to ${mirrorName}...`)
       console.log(`[DependencyManager] ${mirrorLabel} for ${label}: ${url}`)
@@ -284,12 +290,14 @@ async function downloadWithMirrors(
         // Validate the downloaded file has correct magic bytes
         const validationError = verifyFileMagic(destination, label)
         if (validationError) {
-          console.warn(
-            `[DependencyManager] ${mirrorLabel} served bad file: ${validationError}`
-          )
+          console.warn(`[DependencyManager] ${mirrorLabel} served bad file: ${validationError}`)
           onStatus?.(`${mirrorLabel}: ${validationError}, trying next...`)
           // Delete the bad file so next mirror starts clean
-          try { if (fs.existsSync(destination)) fs.unlinkSync(destination) } catch { /* */ }
+          try {
+            if (fs.existsSync(destination)) fs.unlinkSync(destination)
+          } catch {
+            /* */
+          }
           lastError = new Error(validationError)
           continue // Try next mirror
         }
@@ -497,10 +505,12 @@ export async function downloadFfmpeg(
       )
       try {
         if (fs.existsSync(archivePath)) fs.unlinkSync(archivePath)
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       throw new Error(
         `Downloaded archive is too small (${formatSize(archiveSize)}). ` +
-        `The download may have been interrupted. Click Install to try again.`
+          `The download may have been interrupted. Click Install to try again.`
       )
     }
 
@@ -517,7 +527,9 @@ export async function downloadFfmpeg(
         console.error(`[DependencyManager] Extraction failed, deleting corrupt archive`)
         try {
           if (fs.existsSync(archivePath)) fs.unlinkSync(archivePath)
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         throw new Error(
           `Archive is corrupt and has been deleted. Click Install to download again fresh.`
         )
@@ -589,7 +601,10 @@ export async function getLatestYtDlpVersion(): Promise<string | null> {
     const release = await getLatestYtDlpRelease()
     return release.tag_name
   } catch (error) {
-    console.warn('[DependencyManager] Failed to fetch latest yt-dlp version from API:', error instanceof Error ? error.message : String(error))
+    console.warn(
+      '[DependencyManager] Failed to fetch latest yt-dlp version from API:',
+      error instanceof Error ? error.message : String(error)
+    )
     return null
   }
 }
@@ -599,7 +614,10 @@ export async function getLatestFfmpegVersion(): Promise<string | null> {
     const release = await getLatestFfmpegRelease()
     return release.tag_name
   } catch (error) {
-    console.warn('[DependencyManager] Failed to fetch latest ffmpeg version from API:', error instanceof Error ? error.message : String(error))
+    console.warn(
+      '[DependencyManager] Failed to fetch latest ffmpeg version from API:',
+      error instanceof Error ? error.message : String(error)
+    )
     return null
   }
 }
