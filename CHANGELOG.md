@@ -4,6 +4,18 @@ All notable changes to the Nebula Downloader project are documented in this file
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.0] - 2026-02-24
+
+### Added
+- **Complete Test Suite**: Full coverage with Vitest for unit testing and Playwright for E2E testing.
+- **Resilient Downloads**: Connection timeouts increased, with download state resuming reliably after restarts or network interruptions.
+
+### Changed
+- **Database Engine**: Migrated from lowdb to SQLite (`better-sqlite3`) for improved performance, robustness, and concurrent access handling.
+- **Documentation**: Revamped README to be more professional and clearly define supported platforms (Windows & AppImage).
+
+---
+
 ## [1.1.0] - 2026-02-17
 
 ### Added

@@ -16,7 +16,7 @@ const MAX_RETRIES = 3
 const RETRY_DELAYS = [2000, 4000, 8000] // Exponential backoff in ms
 
 // Parse yt-dlp/ffmpeg errors into user-friendly messages
-function parseYtDlpError(stderr: string): { userMessage: string; isRetryable: boolean } {
+export function parseYtDlpError(stderr: string): { userMessage: string; isRetryable: boolean } {
   const lowerStderr = stderr.toLowerCase()
 
   // Video unavailable patterns

@@ -18,35 +18,27 @@ const FFMPEG_RELEASES_URL = 'https://api.github.com/repos/BtbN/FFmpeg-Builds/rel
 const YTDLP_DIRECT_URLS = {
   linux: [
     'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp',
-    'https://mirror.ghproxy.com/https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp',
-    'https://gh-proxy.com/https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp',
-    'https://ghproxy.net/https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp'
+    'https://yt-dlp.org/downloads/latest/yt-dlp',
+    'https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp'
   ],
   win32: [
     'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe',
-    'https://mirror.ghproxy.com/https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe',
-    'https://gh-proxy.com/https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe',
-    'https://ghproxy.net/https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe'
+    'https://yt-dlp.org/downloads/latest/yt-dlp.exe',
+    'https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp.exe'
   ]
 }
 
 const FFMPEG_DIRECT_URLS = {
   linux: [
     'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz',
-    'https://mirror.ghproxy.com/https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz',
-    'https://gh-proxy.com/https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz',
-    'https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz',
-    'https://ghproxy.net/https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz'
+    'https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz'
   ],
   win32: [
-    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip',
-    'https://mirror.ghproxy.com/https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip',
-    'https://gh-proxy.com/https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip',
-    'https://ghproxy.net/https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip'
+    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip'
   ]
 }
 
-const CONNECT_TIMEOUT = 30000 // 30 seconds — standard for non-resumable downloads
+const CONNECT_TIMEOUT = 45000 // 45 seconds — standard for non-resumable downloads
 const MAX_RETRY_ROUNDS = 3 // Retry all mirrors up to 3 times
 
 /** Status callback for UI feedback */
@@ -592,12 +584,22 @@ export async function downloadFfmpeg(
 
 // ── Version helpers ──
 
-export async function getLatestYtDlpVersion(): Promise<string> {
-  const release = await getLatestYtDlpRelease()
-  return release.tag_name
+export async function getLatestYtDlpVersion(): Promise<string | null> {
+  try {
+    const release = await getLatestYtDlpRelease()
+    return release.tag_name
+  } catch (error) {
+    console.warn('[DependencyManager] Failed to fetch latest yt-dlp version from API:', error instanceof Error ? error.message : String(error))
+    return null
+  }
 }
 
-export async function getLatestFfmpegVersion(): Promise<string> {
-  const release = await getLatestFfmpegRelease()
-  return release.tag_name
+export async function getLatestFfmpegVersion(): Promise<string | null> {
+  try {
+    const release = await getLatestFfmpegRelease()
+    return release.tag_name
+  } catch (error) {
+    console.warn('[DependencyManager] Failed to fetch latest ffmpeg version from API:', error instanceof Error ? error.message : String(error))
+    return null
+  }
 }

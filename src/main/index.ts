@@ -1,4 +1,4 @@
-import electron from 'electron'
+import * as electron from 'electron'
 import path, { join } from 'path'
 import fs from 'fs'
 import crypto from 'crypto'

@@ -86,14 +86,11 @@ designs/
 ffmpeg-win.zip
 ffmpeg-linux.tar.xz
 
-# Helper scripts (development only)
-scripts/
-
 # Text dumps
-*.txt
-
-# Tests
-tests/
+branch_*.txt
+git_*.txt
+test-thumb.js
+merge_output.txt
 
 # Temp media files
 *.part
