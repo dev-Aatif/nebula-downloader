@@ -120,6 +120,11 @@ export async function checkYtDlpUpdate(): Promise<UpdateCheckResult> {
     const currentVersion = await getCurrentYtDlpVersion()
     const latestVersion = await getLatestYtDlpVersion()
 
+    // If latestVersion is null (e.g. Rate limit hit), no update can be performed
+    if (!latestVersion) {
+      return { updateAvailable: false, currentVersion, latestVersion: currentVersion || 'unknown' }
+    }
+
     // yt-dlp versions are date-based: "2024.01.15"
     // Lexicographic comparison works correctly
     const updateAvailable = currentVersion ? latestVersion > currentVersion : true
@@ -149,6 +154,11 @@ export async function checkFfmpegUpdate(): Promise<UpdateCheckResult> {
   try {
     const currentVersion = await getCurrentFfmpegVersion()
     const latestVersion = await getLatestFfmpegVersion()
+
+    // If latestVersion is null (e.g. Rate limit hit), no update can be performed
+    if (!latestVersion) {
+      return { updateAvailable: false, currentVersion, latestVersion: currentVersion || 'unknown' }
+    }
 
     // For ffmpeg, we compare version strings
     // This is less precise but works for major updates
