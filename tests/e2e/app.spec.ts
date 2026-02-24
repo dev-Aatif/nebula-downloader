@@ -64,15 +64,15 @@ test.describe('App E2E', () => {
 
     // Click History
     await window.locator('.sidebar >> text=History').click()
-    await expect(window.locator('text=No download history yet').first()).toBeVisible()
+    await expect(window.locator('text=No Downloads Yet').first()).toBeVisible()
   })
 
   test('basic video download input interaction', async () => {
     // Go to Downloads tab
     await window.locator('.sidebar >> text=All Downloads').click()
 
-    // Open Add Download Modal
-    await window.locator('button[title="Add New Download (Ctrl+N)"]').click()
+    // Open Add Download Modal (disambiguate from FAB by using .tool-btn)
+    await window.locator('button.tool-btn[title="Add New Download (Ctrl+N)"]').click()
 
     // Type a URL
     const input = window.locator('input[placeholder="https://..."]')
