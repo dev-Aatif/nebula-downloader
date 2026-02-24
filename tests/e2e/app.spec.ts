@@ -31,28 +31,28 @@ test.describe('App E2E', () => {
   test('app window should open and have correct title', async () => {
     // Verify window properties
     const title = await window.title()
-    expect(title).toBe('Nebula') // Or "Nebula Downloader", verifying correct generic title
+    expect(title).toBe('Nebula Downloader')
   })
 
   test('navigation between side-panel tabs works', async () => {
     // Check initial tab
-    await expect(window.locator('text=Downloads').first()).toBeVisible()
+    await expect(window.locator('text=All Downloads').first()).toBeVisible()
 
     // Click Settings
-    await window.locator('nav >> text=Settings').click()
+    await window.locator('.sidebar >> text=Settings').click()
 
     // Check Settings view
     await expect(window.locator('text=Output Directory').first()).toBeVisible()
     await expect(window.locator('text=Theme').first()).toBeVisible()
 
     // Click History
-    await window.locator('nav >> text=History').click()
+    await window.locator('.sidebar >> text=History').click()
     await expect(window.locator('text=No download history yet').first()).toBeVisible()
   })
 
   test('basic video download input interaction', async () => {
     // Go to Downloads tab
-    await window.locator('nav >> text=Downloads').click()
+    await window.locator('.sidebar >> text=All Downloads').click()
 
     // Type a URL
     const input = window.locator('input[placeholder="Paste video URL here..."]')
