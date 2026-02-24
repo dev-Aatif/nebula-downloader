@@ -7,7 +7,6 @@ test.describe('App E2E', () => {
 
   test.beforeEach(async () => {
     // Determine the path to the electron executable
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const electronAppPath = require('electron')
     // Launch Electron App using the bundled electron executable path
     // Pass headless environment flags for CI compatibility
@@ -19,6 +18,24 @@ test.describe('App E2E', () => {
     window = await electronApp.firstWindow()
     // Wait for the app skeleton to load
     await window.waitForLoadState('domcontentloaded')
+
+    // Dismiss disclaimer modal if it appears
+    try {
+      const acceptDisclaimerBtn = window.locator('text="I Understand & Accept"')
+      await acceptDisclaimerBtn.waitFor({ state: 'visible', timeout: 3000 })
+      await acceptDisclaimerBtn.click()
+    } catch (e) {
+      // Ignore if not present
+    }
+
+    // Dismiss setup modal (for initial dependencies) if it appears
+    try {
+      const skipSetupBtn = window.locator('text="Skip for now"')
+      await skipSetupBtn.waitFor({ state: 'visible', timeout: 3000 })
+      await skipSetupBtn.click()
+    } catch (e) {
+      // Ignore if not present
+    }
   })
 
   test.afterEach(async () => {
