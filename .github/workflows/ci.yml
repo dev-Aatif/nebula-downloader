@@ -37,6 +37,8 @@ jobs:
       
     - name: Build Electron App (for E2E)
       run: npm run build:linux
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
     - name: Run E2E Tests (Playwright)
       run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" npx playwright test
