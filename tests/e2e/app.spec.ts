@@ -6,8 +6,15 @@ test.describe('App E2E', () => {
   let window: any
 
   test.beforeEach(async () => {
-    // Launch Electron App
-    electronApp = await electron.launch({ args: ['.'] })
+    // Determine the path to the electron executable
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const electronAppPath = require('electron')
+    // Launch Electron App using the bundled electron executable path
+    // Pass headless environment flags for CI compatibility
+    electronApp = await electron.launch({ 
+      executablePath: electronAppPath as any, 
+      args: ['.', '--no-sandbox', '--disable-gpu'] 
+    })
     // Get the main window
     window = await electronApp.firstWindow()
     // Wait for the app skeleton to load
