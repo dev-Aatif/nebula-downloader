@@ -59,8 +59,8 @@ test.describe('App E2E', () => {
     await window.locator('.sidebar >> text=Settings').click()
 
     // Check Settings view
-    await expect(window.locator('text=Output Directory').first()).toBeVisible()
-    await expect(window.locator('text=Theme').first()).toBeVisible()
+    await expect(window.locator('text=Download Directory').first()).toBeVisible()
+    await expect(window.locator('text=Simultaneous Downloads').first()).toBeVisible()
 
     // Click History
     await window.locator('.sidebar >> text=History').click()
@@ -71,15 +71,17 @@ test.describe('App E2E', () => {
     // Go to Downloads tab
     await window.locator('.sidebar >> text=All Downloads').click()
 
+    // Open Add Download Modal
+    await window.locator('button[title="Add New Download (Ctrl+N)"]').click()
+
     // Type a URL
-    const input = window.locator('input[placeholder="Paste video URL here..."]')
+    const input = window.locator('input[placeholder="https://..."]')
     await expect(input).toBeVisible()
     await input.fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
 
-    // Find the "+" or Add button to submit URL. Typically aria-label="Add download"
-    // Since we don't know the exact class or aria-label, we can look for the button next to input
-    const addBtn = window.locator('button[aria-label="Add download"]')
-
+    // Find the Add Download button to submit URL
+    const addButton = window.locator('button:has-text("Add Download")').first()
+    await addButton.click() 
     // We won't actually click it unless we have mocked backend in E2E since
     // it requires real yt-dlp. Or we can click it and verify the "Checking..." state.
     // For now we just verify the input took the value.
