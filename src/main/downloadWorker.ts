@@ -246,7 +246,7 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
     '--newline', // Force newline output for progress
     '--progress',
     '--progress-template',
-    'download:{"status":"downloading","downloaded_bytes":%(progress.downloaded_bytes)j,"total_bytes":%(progress.total_bytes|progress.total_bytes_estimate)j,"speed":%(progress.speed)j,"eta":%(progress.eta)j,"percent":"%(progress._percent_str)s","fragment_index":%(progress.fragment_index|null)j,"fragment_count":%(progress.fragment_count|null)j}',
+    'download:{"status":"downloading","downloaded_bytes":%(progress.downloaded_bytes|null)j,"total_bytes":%(progress.total_bytes|progress.total_bytes_estimate|null)j,"speed":%(progress.speed|null)j,"eta":%(progress.eta|null)j,"percent":"%(progress._percent_str|"")s","fragment_index":%(progress.fragment_index|null)j,"fragment_count":%(progress.fragment_count|null)j}',
     '--no-warnings',
     '--restrict-filenames', // Security: Prevent path traversal and special chars
     '-f',
@@ -279,25 +279,42 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
   const ffmpegPath = getFfmpegPath()
   const ffmpegDir = path.dirname(ffmpegPath)
 
+  // Extract the target merge format early to dictate embedding compatibility
+  let targetMergeFormat = 'mp4' // Default to mp4 if ambiguous
+  if (!isAudioOnly && !shouldExtractAudio) {
+    if (formatSelection.includes('[ext=mkv]')) {
+      targetMergeFormat = 'mkv'
+    } else if (formatSelection.includes('[ext=webm]')) {
+      targetMergeFormat = 'webm'
+    }
+  }
+
   // Check if ffprobe exists (required for --embed-thumbnail by yt-dlp rigidly, but ffmpeg often handles it)
   // We bypass the check because we only bundle ffmpeg, but we still want yt-dlp to try embedding.
-  args.unshift('--embed-thumbnail', '--add-metadata')
 
-  // For audio only, convert thumbnail to jpg to ensure compatibility
-  if (isAudioOnly) {
+  // Conditionally embed thumbnails.
+  // WAV and FLAC do not support standard ffmpeg thumbnail embedding without the `mutagen` python module.
+  // MKV and WEBM also generally reject yt-dlp thumbnail embedding in many setups, causing 'Conversion failed!'
+  const isEmbeddableAudio = isAudioOnly && (audioFormat === 'mp3' || audioFormat === 'm4a')
+  const isEmbeddableVideo = !isAudioOnly && targetMergeFormat === 'mp4'
+  const supportsEmbedding = isEmbeddableAudio || isEmbeddableVideo
+
+  if (supportsEmbedding) {
+    args.unshift('--embed-thumbnail', '--add-metadata')
+
+    // Convert thumbnail to jpg to ensure compatibility across players
     args.unshift('--convert-thumbnails', 'jpg')
+  } else {
+    // We still want general metadata, just not the thumbnail embedding that breaks FLAC/WAV/MKV/WEBM
+    args.unshift('--add-metadata')
   }
 
   // Handle merge output format for video
   // If we are extracting audio, we don't merge to mp4 (yt-dlp handles the conversion)
-  // If we are downloading video, we enforce mp4 merge unless it's already specific
+  // If we are downloading video, we enforce merge depending on the requested container
   if (!isAudioOnly && !shouldExtractAudio) {
-    // For video, use mp4 merge format to ensure video+audio streams are merged into mp4 container
-    // But check if user selected 'best' or 'bestvideo+bestaudio' which commonly needs merge
-    // If user explicitly selected a container in the format string (e.g. [ext=webm]), we might respect it,
-    // but the requirement was "ensure friendly format".
-    // Let's stick to mp4 merge for generic video downloads.
-    args.splice(args.indexOf('--no-simulate'), 0, '--merge-output-format', 'mp4')
+    // Apply the dynamically determined merge format
+    args.splice(args.indexOf('--no-simulate'), 0, '--merge-output-format', targetMergeFormat)
   }
 
   if (settings.proxy) args.push('--proxy', settings.proxy)
@@ -324,6 +341,26 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
     console.log(`[Download] FFmpeg location: ${ffmpegPath}`)
     console.log(`[Download] Working directory: ${downloadsPath}`)
     console.log(`[Download] Args:`, JSON.stringify(args, null, 2))
+
+    // Helper to enforce the final extension (since yt-dlp reports the un-merged stream extension during download)
+    const resolveFinalPath = (rawPath: string): string => {
+      let finalPath = rawPath
+      if (!path.isAbsolute(finalPath)) {
+        finalPath = path.join(downloadsPath, finalPath)
+      }
+
+      const ext = path.extname(finalPath)
+      if (shouldExtractAudio && audioFormat) {
+        if (ext !== `.${audioFormat}`) {
+          finalPath = finalPath.slice(0, -ext.length) + `.${audioFormat}`
+        }
+      } else if (!isAudioOnly && !shouldExtractAudio) {
+        if (ext !== `.${targetMergeFormat}`) {
+          finalPath = finalPath.slice(0, -ext.length) + `.${targetMergeFormat}`
+        }
+      }
+      return finalPath
+    }
 
     // Set cwd to downloads path to ensure all files (including thumbnails) go there
     // RE-CHECK STATUS: user might have paused while we were awaiting DB/Disk checks
@@ -457,11 +494,7 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
             if (output.filename || output._filename) {
               const rawPath = output.filename || output._filename
               if (rawPath && rawPath !== 'NA') {
-                let finalPath = rawPath
-                if (!path.isAbsolute(finalPath)) {
-                  finalPath = path.join(downloadsPath, finalPath)
-                }
-                updateData.outputPath = finalPath
+                updateData.outputPath = resolveFinalPath(rawPath)
               }
             }
 
@@ -479,11 +512,7 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
               // yt-dlp might return "NA" (string) even with j flag if we are unlucky,
               // but usually j flag returns null. If it returns "NA" string, we filter it.
               if (rawPath !== 'NA') {
-                let finalPath = rawPath
-                // If the path is not absolute, resolve it relative to download dir
-                if (!path.isAbsolute(finalPath)) {
-                  finalPath = path.join(downloadsPath, finalPath)
-                }
+                const finalPath = resolveFinalPath(rawPath)
 
                 console.log(`[Download] 🎯 METADATA CAPTURED: ${finalPath}`)
                 const updateData: Partial<Download> = {
@@ -512,9 +541,10 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
 
             // Capture path from various possible fields
             const capturedPath = output.filename || output._filename || output.filepath
-            if (capturedPath) {
-              updateData.outputPath = capturedPath
-              console.log(`[Download] Path captured from info JSON: ${capturedPath}`)
+            if (capturedPath && capturedPath !== 'NA') {
+              const finalPath = resolveFinalPath(capturedPath)
+              updateData.outputPath = finalPath
+              console.log(`[Download] Path captured from info JSON: ${finalPath}`)
             }
 
             const totalSizeInBytes = output.filesize || output.filesize_approx

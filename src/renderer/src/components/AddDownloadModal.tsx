@@ -426,15 +426,23 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({
                   onChange={(e) => setVideoOptions({ ...videoOptions, resolution: e.target.value })}
                   className="w-full bg-white/5 border border-border-glass rounded p-2 text-sm focus:border-neon-blue focus:outline-none"
                 >
-                  {RESOLUTIONS.filter((r) => {
-                    if (r.value === 'best') return true // Always show "Best Available"
-                    if (!availableResolutions) return true // Show all if not fetched yet
-                    return availableResolutions.includes(r.value)
-                  }).map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.label}
-                    </option>
-                  ))}
+                  {RESOLUTIONS.map((r) => {
+                    const isAvailable =
+                      r.value === 'best' ||
+                      !availableResolutions ||
+                      availableResolutions.includes(r.value)
+                    return (
+                      <option
+                        key={r.value}
+                        value={r.value}
+                        disabled={!isAvailable}
+                        className={!isAvailable ? 'text-text-dim/50 bg-bg-deep' : ''}
+                      >
+                        {r.label}
+                        {!isAvailable ? ' (Unavailable)' : ''}
+                      </option>
+                    )
+                  })}
                 </select>
               </div>
               <div>

@@ -1,7 +1,4 @@
 import { describe, it, expect, vi } from 'vitest'
-import https from 'https'
-import http from 'http'
-
 // These are directly matching the URLs inside downloader.ts
 const YTDLP_DIRECT_URLS = {
   linux: [
@@ -34,7 +31,7 @@ vi.unmock('http')
  * Checks if a URL is accessible by following redirects
  * Aborts the download once stable 200 OK headers are received to save bandwidth.
  */
-async function checkUrlAccessible(url: string, maxRedirects = 5): Promise<boolean> {
+async function checkUrlAccessible(url: string): Promise<boolean> {
   const controller = new AbortController()
   // We timeout fetch requests manually just in case
   const timeoutId = setTimeout(() => controller.abort(), 15000)
@@ -44,13 +41,13 @@ async function checkUrlAccessible(url: string, maxRedirects = 5): Promise<boolea
       method: 'HEAD',
       redirect: 'follow',
       headers: { 'User-Agent': 'Nebula-Downloader-Test' },
-      signal: controller.signal as any
+      signal: controller.signal as unknown as AbortSignal
     })
     const ok = res.status === 200 || res.status === 206 || res.status === 302 || res.ok
 
     clearTimeout(timeoutId)
     return ok
-  } catch (error) {
+  } catch {
     clearTimeout(timeoutId)
     return false
   }

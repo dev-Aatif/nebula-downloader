@@ -50,17 +50,26 @@ export function generateVideoFormat(options: VideoFormatOptions): FormatGenerati
       // Best video (mp4) + best audio (m4a) OR best mp4
       formatString = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
       description = 'Best Quality (MP4)'
+    } else if (container === 'mkv') {
+      // YouTube doesn't serve MKV natively, so we fetch best generic streams and let backend ffmpeg merge them.
+      // We embed `[ext=mkv]` as a dead-end fallback just so downloadWorker.ts detects the MKV container request.
+      formatString = `bestvideo+bestaudio/bestvideo[ext=mkv]/best`
+      description = `Best Quality (MKV)`
     } else {
-      // Best video + best audio
-      formatString = 'bestvideo+bestaudio/best'
+      // Best video + best audio corresponding to the container
+      const audioExt = container === 'webm' ? '[ext=webm]' : ''
+      formatString = `bestvideo[ext=${container}]+bestaudio${audioExt}/best[ext=${container}]/best`
       description = `Best Quality (${container.toUpperCase()})`
     }
   } else {
     // Specific resolution
     if (container === 'mp4') {
       formatString = `bestvideo[height<=${resolution}][ext=mp4]+bestaudio[ext=m4a]/best[height<=${resolution}][ext=mp4]/best[height<=${resolution}]`
+    } else if (container === 'mkv') {
+      formatString = `bestvideo[height<=${resolution}]+bestaudio/bestvideo[ext=mkv]/best[height<=${resolution}]`
     } else {
-      formatString = `bestvideo[height<=${resolution}]+bestaudio/best[height<=${resolution}]`
+      const audioExt = container === 'webm' ? '[ext=webm]' : ''
+      formatString = `bestvideo[height<=${resolution}][ext=${container}]+bestaudio${audioExt}/best[height<=${resolution}][ext=${container}]/best[height<=${resolution}]`
     }
     description = `${resolution}p (${container.toUpperCase()})`
   }

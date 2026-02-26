@@ -177,7 +177,7 @@ function App(): React.ReactElement {
         setShowDisclaimer(true)
       }
     })
-  }, [])
+  }, [setActivePage])
 
   const handleStartInstall = async (): Promise<void> => {
     setSetupStatus('downloading')
