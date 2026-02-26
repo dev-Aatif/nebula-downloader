@@ -4,6 +4,19 @@ All notable changes to the Nebula Downloader project are documented in this file
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.0] - 2026-02-27
+
+### Added
+
+- **Integration Test Suite**: Complete integration coverage for audio extraction variations and video container combinations, ensuring robust local operation.
+
+### Fixed
+
+- **MKV & WebM Support**: Perfected backend muxing for MP4, MKV, and WebM format payloads to cleanly bypass incompatible `yt-dlp` track flags.
+- **Dynamic Quality Filtering**: UI strictly blocks selection of unavailable video qualities/containers before queuing.
+- **Audio Extract Integrity**: Prevented audio extracts and MKV files from crashing ffmpeg due to embedded thumbnail limitations.
+- **Download Path Verification**: Fixed metadata sync issues where yt-dlp's extension updates caused integrity failures in the local database.
+
 ## [1.2.0] - 2026-02-24
 
 ### Added
