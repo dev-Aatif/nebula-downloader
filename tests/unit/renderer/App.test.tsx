@@ -45,7 +45,11 @@ const mockApi = {
   removeDownloadProgress: vi.fn(),
   removeDownloadComplete: vi.fn(),
   removeDownloadError: vi.fn(),
-  removeInstallProgress: vi.fn()
+  removeInstallProgress: vi.fn(),
+  readClipboard: vi.fn(() => Promise.resolve('')),
+  runBackgroundUpdates: vi.fn(() => Promise.resolve()),
+  getDownloads: vi.fn(() => Promise.resolve([])),
+  getCompletedDownloads: vi.fn(() => Promise.resolve([]))
 }
 
 // Ensure the real window has the mocked api before React mounts

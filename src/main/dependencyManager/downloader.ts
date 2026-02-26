@@ -17,9 +17,9 @@ const FFMPEG_RELEASES_URL = 'https://api.github.com/repos/BtbN/FFmpeg-Builds/rel
 // Direct download URLs — stable "latest" redirect URLs that bypass the API
 const YTDLP_DIRECT_URLS = {
   linux: [
-    'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp',
-    'https://yt-dlp.org/downloads/latest/yt-dlp',
-    'https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp'
+    'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux',
+    'https://yt-dlp.org/downloads/latest/yt-dlp_linux',
+    'https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp_linux'
   ],
   win32: [
     'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe',

@@ -43,11 +43,6 @@ let tray: electron.Tray | null = null
 
 // Removed getVideoInfo to ensure instant download start
 
-// Disable sandbox on Linux to fix AppImage SUID helper issues (e.g. Lubuntu 24.04+)
-if (process.platform === 'linux') {
-  electron.app.commandLine.appendSwitch('no-sandbox')
-}
-
 electron.app.whenReady().then(async () => {
   // const { electronApp, optimizer, is } = await import('@electron-toolkit/utils')
 

@@ -78,6 +78,13 @@ export function parseYtDlpError(stderr: string): { userMessage: string; isRetrya
     lowerStderr.includes('timed out') ||
     lowerStderr.includes('network')
   ) {
+    if (lowerStderr.includes('http error 416')) {
+      return {
+        userMessage:
+          'Resuming failed due to a caching error. Cleaning up and restarting download...',
+        isRetryable: true
+      }
+    }
     return { userMessage: 'Network error. Will retry automatically...', isRetryable: true }
   }
 
@@ -299,11 +306,15 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
   if (settings.speedLimit && settings.speedLimit > 0) {
     args.push('--limit-rate', `${settings.speedLimit}K`)
   }
-  // Only add --ffmpeg-location if the directory actually exists
-  if (fs.existsSync(ffmpegDir)) {
+  // Only add --ffmpeg-location if the binary actually exists
+  if (fs.existsSync(ffmpegPath)) {
+    // yt-dlp prefers the exact binary path if both ffmpeg and ffprobe are there but the dir alone fails
+    args.push('--ffmpeg-location', ffmpegPath)
+  } else if (fs.existsSync(ffmpegDir)) {
+    // Fallback to directory just in case
     args.push('--ffmpeg-location', ffmpegDir)
   } else {
-    console.warn(`[Download] FFmpeg directory not found: ${ffmpegDir}, skipping --ffmpeg-location`)
+    console.warn(`[Download] FFmpeg not found: ${ffmpegPath}, skipping --ffmpeg-location`)
   }
 
   let fullStderr = ''
@@ -544,6 +555,32 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
       if (currentDownload) {
         // Parse the error for user-friendly message
         const { userMessage } = parseYtDlpError(errorString)
+
+        // Identify 416 error (dirty cache / resume failure) to automatically wipe the corrupt .part files
+        if (errorString.toLowerCase().includes('http error 416')) {
+          console.warn(
+            `[Download] Detected HTTP 416 error for ${download.id}. Deleting corrupt .part files...`
+          )
+          try {
+            const possibleBase = currentDownload.outputPath?.replace(/\.[^.]+$/, '')
+            if (possibleBase && fs.existsSync(downloadsPath)) {
+              const files = fs.readdirSync(downloadsPath)
+              const baseNameMatch = path.basename(possibleBase)
+              for (const file of files) {
+                if (
+                  file.includes(baseNameMatch) &&
+                  (file.endsWith('.part') || file.endsWith('.ytdl'))
+                ) {
+                  const toDelete = path.join(downloadsPath, file)
+                  fs.unlinkSync(toDelete)
+                  console.log(`[Download] Cleaned up conflicting part file: ${toDelete}`)
+                }
+              }
+            }
+          } catch (e) {
+            console.error(`[Download] Failed to clean up .part files after 416 error:`, e)
+          }
+        }
 
         const errorLog: DownloadError = {
           timestamp: new Date(),

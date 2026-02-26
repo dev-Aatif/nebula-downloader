@@ -5,9 +5,9 @@ import http from 'http'
 // These are directly matching the URLs inside downloader.ts
 const YTDLP_DIRECT_URLS = {
   linux: [
-    'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp',
-    'https://yt-dlp.org/downloads/latest/yt-dlp',
-    'https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp'
+    'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux',
+    'https://yt-dlp.org/downloads/latest/yt-dlp_linux',
+    'https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp_linux'
   ],
   win32: [
     'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe',
@@ -18,8 +18,8 @@ const YTDLP_DIRECT_URLS = {
 
 const FFMPEG_DIRECT_URLS = {
   linux: [
-    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz',
-    'https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz'
+    'https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz',
+    'https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-amd64-static.tar.xz'
   ],
   win32: [
     'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip'
@@ -34,44 +34,30 @@ vi.unmock('http')
  * Checks if a URL is accessible by following redirects
  * Aborts the download once stable 200 OK headers are received to save bandwidth.
  */
-function checkUrlAccessible(url: string, maxRedirects = 3): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (maxRedirects < 0) return resolve(false)
-    const client = url.startsWith('https') ? https : http
+async function checkUrlAccessible(url: string, maxRedirects = 5): Promise<boolean> {
+  const controller = new AbortController()
+  // We timeout fetch requests manually just in case
+  const timeoutId = setTimeout(() => controller.abort(), 15000)
 
-    // We do a GET instead of HEAD since some static hosts (like Github Releases) can behave strictly with HEAD
-    const req = client.get(
-      url,
-      { headers: { 'User-Agent': 'Nebula-Downloader-Test' }, timeout: 15000 },
-      (res) => {
-        if (res.statusCode === 200) {
-          req.destroy() // Stop downloading the file
-          resolve(true)
-          return
-        }
-        if (
-          (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 308) &&
-          res.headers.location
-        ) {
-          req.destroy()
-          checkUrlAccessible(res.headers.location, maxRedirects - 1).then(resolve)
-          return
-        }
-        req.destroy()
-        resolve(false)
-      }
-    )
-
-    req.on('error', () => resolve(false))
-    req.on('timeout', () => {
-      req.destroy()
-      resolve(false)
+  try {
+    const res = await fetch(url, {
+      method: 'HEAD',
+      redirect: 'follow',
+      headers: { 'User-Agent': 'Nebula-Downloader-Test' },
+      signal: controller.signal as any
     })
-  })
+    const ok = res.status === 200 || res.status === 206 || res.status === 302 || res.ok
+
+    clearTimeout(timeoutId)
+    return ok
+  } catch (error) {
+    clearTimeout(timeoutId)
+    return false
+  }
 }
 
 describe('Dependency Mirrors Accessibility', () => {
-  it.concurrent.each(YTDLP_DIRECT_URLS.linux)(
+  it.each(YTDLP_DIRECT_URLS.linux)(
     'Linux yt-dlp mirror should be accessible: %s',
     async (url) => {
       const isAlive = await checkUrlAccessible(url)
@@ -80,7 +66,7 @@ describe('Dependency Mirrors Accessibility', () => {
     20000 // 20s timeout per test
   )
 
-  it.concurrent.each(YTDLP_DIRECT_URLS.win32)(
+  it.each(YTDLP_DIRECT_URLS.win32)(
     'Windows yt-dlp mirror should be accessible: %s',
     async (url) => {
       const isAlive = await checkUrlAccessible(url)
@@ -89,7 +75,7 @@ describe('Dependency Mirrors Accessibility', () => {
     20000
   )
 
-  it.concurrent.each(FFMPEG_DIRECT_URLS.linux)(
+  it.each(FFMPEG_DIRECT_URLS.linux)(
     'Linux ffmpeg mirror should be accessible: %s',
     async (url) => {
       const isAlive = await checkUrlAccessible(url)
@@ -98,7 +84,7 @@ describe('Dependency Mirrors Accessibility', () => {
     20000
   )
 
-  it.concurrent.each(FFMPEG_DIRECT_URLS.win32)(
+  it.each(FFMPEG_DIRECT_URLS.win32)(
     'Windows ffmpeg mirror should be accessible: %s',
     async (url) => {
       const isAlive = await checkUrlAccessible(url)

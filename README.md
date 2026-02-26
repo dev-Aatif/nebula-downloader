@@ -100,6 +100,18 @@ npm run test:e2e
 
 ---
 
+## 🔧 Troubleshooting
+
+### Linux AppImage won't open (SUID Sandbox Error)
+
+On some modern Linux distributions (like Ubuntu 24.04 or Lubuntu), security restrictions on unprivileged user namespaces may prevent the Electron sandbox from initiating. If the AppImage fails to launch with an `SUID sandbox helper binary` error, run the AppImage from the terminal with the sandbox disabled:
+
+```bash
+./Nebula-Downloader-1.2.1.AppImage --no-sandbox
+```
+
+---
+
 ## ⚖️ License & Acknowledgements
 
 This project is licensed under the **GPL-3.0 License** — see the [LICENSE](LICENSE) file for complete details.
