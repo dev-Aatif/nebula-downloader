@@ -29,7 +29,6 @@ describe('API Server (apiServer.ts)', () => {
     webContents: {
       send: vi.fn()
     }
-     
   } as any
 
   beforeEach(async () => {

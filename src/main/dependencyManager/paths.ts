@@ -50,6 +50,23 @@ export function getFfmpegPath(): string {
 }
 
 /**
+ * Get the path to ffprobe executable
+ */
+export function getFfprobePath(): string {
+  const binaryName = process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe'
+
+  const userBinPath = path.join(app.getPath('userData'), 'bin', binaryName)
+  if (fs.existsSync(userBinPath)) {
+    return userBinPath
+  }
+
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'bin', binaryName)
+  }
+  return path.join(process.cwd(), 'resources', 'bin', binaryName)
+}
+
+/**
  * Get the path to the version tracking file
  */
 export function getVersionFilePath(): string {
@@ -70,6 +87,13 @@ export function ytDlpExists(): boolean {
 export function ffmpegExists(): boolean {
   const ffmpegPath = getFfmpegPath()
   return fs.existsSync(ffmpegPath)
+}
+
+/**
+ * Check if ffprobe exists
+ */
+export function ffprobeExists(): boolean {
+  return fs.existsSync(getFfprobePath())
 }
 
 /**

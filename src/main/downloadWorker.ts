@@ -241,7 +241,6 @@ async function _runDownload(download: Download, window: BrowserWindow): Promise<
     '--progress-template',
     'download:{"status":"downloading","downloaded_bytes":%(progress.downloaded_bytes)j,"total_bytes":%(progress.total_bytes|progress.total_bytes_estimate)j,"speed":%(progress.speed)j,"eta":%(progress.eta)j,"percent":"%(progress._percent_str)s","fragment_index":%(progress.fragment_index|null)j,"fragment_count":%(progress.fragment_count|null)j}',
     '--no-warnings',
-    '--no-part', // Write directly to final filename — prevents .part files leaking to wrong directory
     '--restrict-filenames', // Security: Prevent path traversal and special chars
     '-f',
     formatSelection

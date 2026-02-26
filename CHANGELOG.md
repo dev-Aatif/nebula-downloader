@@ -7,10 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [1.2.0] - 2026-02-24
 
 ### Added
+
 - **Complete Test Suite**: Full coverage with Vitest for unit testing and Playwright for E2E testing.
 - **Resilient Downloads**: Connection timeouts increased, with download state resuming reliably after restarts or network interruptions.
 
 ### Changed
+
 - **Database Engine**: Migrated from lowdb to SQLite (`better-sqlite3`) for improved performance, robustness, and concurrent access handling.
 - **Documentation**: Revamped README to be more professional and clearly define supported platforms (Windows & AppImage).
 
@@ -20,7 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- **Format Selection Overhaul**: 
+- **Format Selection Overhaul**:
   - New "Add Download" modal with tabs for Video and Audio.
   - Granular control over resolution (up to 8K), container (mp4, mkv, webm), and audio bitrate.
   - Dedicated "Extract Audio" mode with format selection (mp3, m4a, wav).

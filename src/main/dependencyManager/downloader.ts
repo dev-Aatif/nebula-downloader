@@ -536,37 +536,58 @@ export async function downloadFfmpeg(
       }
     }
 
-    // Find the ffmpeg binary
+    // Find the ffmpeg and ffprobe binaries
     const binaryName = isWin ? 'ffmpeg.exe' : 'ffmpeg'
-    let extractedBinaryPath = ''
+    const probeName = isWin ? 'ffprobe.exe' : 'ffprobe'
 
-    const findBinary = (dir: string): void => {
+    let extractedFfmpegPath = ''
+    let extractedFfprobePath = ''
+
+    const findBinaries = (dir: string): void => {
       const files = fs.readdirSync(dir)
       for (const file of files) {
         const fullPath = path.join(dir, file)
         if (fs.statSync(fullPath).isDirectory()) {
-          findBinary(fullPath)
-        } else if (file === binaryName && !extractedBinaryPath) {
-          extractedBinaryPath = fullPath
+          findBinaries(fullPath)
+        } else {
+          if (file === binaryName && !extractedFfmpegPath) {
+            extractedFfmpegPath = fullPath
+          }
+          if (file === probeName && !extractedFfprobePath) {
+            extractedFfprobePath = fullPath
+          }
         }
       }
     }
-    findBinary(extractDir)
+    findBinaries(extractDir)
 
-    if (!extractedBinaryPath) {
+    if (!extractedFfmpegPath) {
       throw new Error(`Could not find ${binaryName} in downloaded archive`)
     }
 
     onStatus?.('Installing FFmpeg...')
 
     const binDir = getUserDataBinDir()
-    const finalPath = path.join(binDir, binaryName)
+    const finalFfmpegPath = path.join(binDir, binaryName)
+    const finalFfprobePath = path.join(binDir, probeName)
 
     if (!fs.existsSync(binDir)) fs.mkdirSync(binDir, { recursive: true })
-    if (fs.existsSync(finalPath)) fs.unlinkSync(finalPath)
-    fs.copyFileSync(extractedBinaryPath, finalPath)
 
-    if (!isWin) fs.chmodSync(finalPath, 0o755)
+    // Copy ffmpeg
+    if (fs.existsSync(finalFfmpegPath)) fs.unlinkSync(finalFfmpegPath)
+    fs.copyFileSync(extractedFfmpegPath, finalFfmpegPath)
+    if (!isWin) fs.chmodSync(finalFfmpegPath, 0o755)
+
+    // Copy ffprobe (if found)
+    if (extractedFfprobePath) {
+      if (fs.existsSync(finalFfprobePath)) fs.unlinkSync(finalFfprobePath)
+      fs.copyFileSync(extractedFfprobePath, finalFfprobePath)
+      if (!isWin) fs.chmodSync(finalFfprobePath, 0o755)
+    } else {
+      console.warn(
+        `[DependencyManager] Could not find ${probeName} in archive. Audio extraction might fail.`
+      )
+    }
 
     // Cleanup
     onStatus?.('Cleaning up...')
@@ -574,7 +595,7 @@ export async function downloadFfmpeg(
     fs.rmSync(extractDir, { recursive: true, force: true })
 
     onStatus?.('FFmpeg installed successfully')
-    console.log(`[DependencyManager] FFmpeg ${version} installed to ${finalPath}`)
+    console.log(`[DependencyManager] FFmpeg ${version} installed to ${finalFfmpegPath}`)
     return { success: true, version }
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)

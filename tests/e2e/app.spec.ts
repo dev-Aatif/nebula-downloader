@@ -10,9 +10,9 @@ test.describe('App E2E', () => {
     const electronAppPath = require('electron')
     // Launch Electron App using the bundled electron executable path
     // Pass headless environment flags for CI compatibility
-    electronApp = await electron.launch({ 
-      executablePath: electronAppPath as any, 
-      args: ['.', '--no-sandbox', '--disable-gpu'] 
+    electronApp = await electron.launch({
+      executablePath: electronAppPath as any,
+      args: ['.', '--no-sandbox', '--disable-gpu']
     })
     // Get the main window
     window = await electronApp.firstWindow()
@@ -81,7 +81,7 @@ test.describe('App E2E', () => {
 
     // Find the Add Download button to submit URL
     const addButton = window.locator('button:has-text("Add Download")').first()
-    await addButton.click() 
+    await addButton.click()
     // We won't actually click it unless we have mocked backend in E2E since
     // it requires real yt-dlp. Or we can click it and verify the "Checking..." state.
     // For now we just verify the input took the value.
