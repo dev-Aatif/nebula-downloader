@@ -30,8 +30,8 @@ const YTDLP_DIRECT_URLS = {
 
 const FFMPEG_DIRECT_URLS = {
   linux: [
-    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz',
-    'https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz'
+    'https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz',
+    'https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-amd64-static.tar.xz'
   ],
   win32: [
     'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip'
@@ -464,17 +464,22 @@ export async function downloadFfmpeg(
     onStatus?.('Checking for latest version...')
 
     try {
-      const release = await getLatestFfmpegRelease()
-      version = release.tag_name
-      const asset = release.assets.find((a: GitHubAsset) => {
-        if (isWin) {
+      if (isWin) {
+        const release = await getLatestFfmpegRelease()
+        version = release.tag_name
+        const asset = release.assets.find((a: GitHubAsset) => {
           return a.name.includes('win64') && a.name.includes('gpl') && a.name.endsWith('.zip')
+        })
+        if (asset) {
+          downloadUrl = asset.browser_download_url
+          onStatus?.(`Found FFmpeg ${version}`)
         }
-        return a.name.includes('linux64') && a.name.includes('gpl') && a.name.endsWith('.tar.xz')
-      })
-      if (asset) {
-        downloadUrl = asset.browser_download_url
-        onStatus?.(`Found FFmpeg ${version}`)
+      } else {
+        // Skip BtbN GitHub API for Linux; BtbN's Linux builds are dynamically linked
+        // and cause "error while loading shared libraries" in yt-dlp.
+        // We strictly use johnvansickle pure static builds for Linux.
+        version = 'static-release'
+        onStatus?.(`Found FFmpeg Static Release`)
       }
     } catch (apiErr) {
       const msg = apiErr instanceof Error ? apiErr.message : String(apiErr)
